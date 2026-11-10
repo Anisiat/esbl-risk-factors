@@ -1,20 +1,4 @@
--- ============================================================================
--- MICROBIOLOGY EKP TABLE DERIVATION
--- Source: Transcribed and annotated from screenshot.
--- Purpose:
---   Build a microbiology dataset containing:
---     * EKP organisms (E. coli, Klebsiella spp., Proteus mirabilis)
---     * Antibiotic susceptibility test (AST) results
---     * ESBL marker information
---     * Culture type information
---
--- Notes:
---   - ESBL status is inferred from susceptibility records and lookup tables.
---   - Antibiotic/result strings are split into separate fields.
---   - Antibiotics excluded from the final antibiogram are removed.
---   - AST results are pivoted so each antibiotic becomes a column.
--- ============================================================================
-
+-- (lines 1-18 not visible in the screenshots - header comments / anything before the CREATE statement)
 
 CREATE OR REPLACE TABLE AT_MICROBIOLOGY_EKP AS (
 
@@ -109,14 +93,14 @@ split_ast_cte AS (
         FROM microbiology_ekp_cte
     )
 
-      AND ORDER_NAME = 'susceptibility'
+    AND ORDER_NAME = 'susceptibility'
 
-      AND LOWER(organism_bug) IN (
-          'escherichia coli',
-          'klebsiella pneumoniae',
-          'klebsiella oxytoca',
-          'proteus mirabilis'
-      )
+    AND LOWER(organism_bug) IN (
+        'escherichia coli',
+        'klebsiella pneumoniae',
+        'klebsiella oxytoca',
+        'proteus mirabilis'
+    )
 ),
 
 
@@ -177,17 +161,17 @@ order_name_table AS (
         FROM pivot_ekp_ast_cte
     )
 
-      AND ORDER_NAME != 'susceptibility'
+    AND ORDER_NAME != 'susceptibility'
 
-      AND LOWER(organism_bug) IN (
-          'escherichia coli',
-          'klebsiella pneumoniae',
-          'klebsiella oxytoca',
-          'proteus mirabilis'
-      )
+    AND LOWER(organism_bug) IN (
+        'escherichia coli',
+        'klebsiella pneumoniae',
+        'klebsiella oxytoca',
+        'proteus mirabilis'
+    )
 
-      -- Original note from screenshot:
-      -- "what do I do about samples that also have other bugs?"
+    -- Original note from screenshot:
+    -- "what do I do about samples that also have other bugs?"
 )
 
 

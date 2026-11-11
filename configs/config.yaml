@@ -15,15 +15,19 @@ paths:
   clean_mcs: ../data/interim/mcs_clean.csv
   screens: ../data/interim/screens_clean.csv
   tfc_mapping : ../data/lookups/treatment_function_mapping.csv
-  msc_mapping : ../data/lookups/main_specialty_mapping.csv 
+  msc_mapping : ../data/lookups/main_specialty_mapping.csv
   clean_demographics : ../data/interim/demographics_clean.csv
   prescriptions : ../data/raw/prescriptions.csv
   crp : ../data/raw/crp.csv
   temperature: ../data/raw/temperature.csv
   emergency_exposure: ../data/raw/prior_emergency_exposure.csv
-  healthcare_exposure: ../data/raw/prior_healthcare_exposure.csv
+  inpatient_exposure: ../data/raw/prior_inpatient_exposure.csv
+  outpatient_exposure: ../data/raw/prior_outpatient_exposure.csv
   lr_dataset: ../outputs/univariable_lr/lr_data.csv
- 
+  all_microbiology : ../data/raw/all_microbiology_ekp.csv
+  elective_surgery_all_microbiology :  ../data/raw/elective_surgery_all_microbiology.csv
+  analysis_df: '../data/interim/analysis_df.csv'
+
 
 # What are the ID columns (used for joining)?
 # What are the time columns (used for filtering or windowing)?
@@ -46,48 +50,44 @@ table1:
   groupby: esbl_status
 
   columns:
-    age_at_admission
-    gender
-    ethnicity_desc
-    imd_decile
+    - esbl_status
+    - age_at_admission
+    - gender
+    - ethnicity_desc
+    - imd_decile
 
-    is_emergency
-    tfc
+    - tfc
 
-    asthma
-    cancer
-    copd
-    hypertension
-    ischaemic_heart_disease
-    type2_diabetes
+    - asthma
+    - cancer
+    - copd
+    - hypertension
+    - ischaemic_heart_disease
+    - type2_diabetes
 
-    emergency_exposure_90d
-    hospital_exposure_90d
+    - inpatient_exposure_90d
 
-    n_surgeries
-    procedure_descs
-    surgery_length
-    min_days_from_surgery_to_infection
+    - n_surgeries
+    - surgery_length
+    - min_days_from_surgery_to_infection
 
-    prophylaxis_group
-    prophylaxis_class
-    delta_hours_prophylaxis
-    n_prophylaxis_events
-    is_therapeutic
-    tier
+    - prophylaxis_group
+    - delta_hours_prophylaxis
 
-    site
-    all_sites_grouped
-    n_sites
-    organisms_bug
-    n_samples
-    culture_span_days
+    - site
+    - n_sites
+    - organism_bug
+    - n_samples
+    - culture_span_days
+    - prior_positive_esbl
 
-    temp
-    crp
+    - temp
+    - crp
 
-    length_of_stay_days
-    in_hosp_mortality
+    - past_abx
+
+    - length_of_stay_days
+    - in_hosp_mortality
 
   categorical:
     - tfc
@@ -97,17 +97,15 @@ table1:
     - organism_bug
     - past_abx
     - prophylaxis_group
-    - any_healthcare_exposure_90d
-    - colonisation
     - cancer
     - copd
     - type2_diabetes
     - ischaemic_heart_disease
     - hypertension
     - asthma
-    - hospital_exposure_90d
-    - emergency_exposure_90d
+    - inpatient_exposure_90d
     - in_hosp_mortality
+    - prior_positive_esbl
 
   nonnormal:
     - age_at_admission
@@ -119,8 +117,6 @@ table1:
     - min_days_from_surgery_to_infection
     - temp
     - crp
-
-
 
 logistic_regression:
   outcome: esbl_status
@@ -146,16 +142,14 @@ logistic_regression:
     binary:
       - gender
       - past_abx
-      - emergency_exposure_90d
-      - hospital_exposure_90d
-      - any_healthcare_exposure_90d
-      - colonisation
+      - inpatient_exposure_90d
       - asthma
       - cancer
       - copd
       - hypertension
       - ischaemic_heart_disease
       - type2_diabetes
+      - prior_positive_esbl
 
     categorical:
       - ethnicity_desc
@@ -169,6 +163,4 @@ logistic_regression:
     organism_bug: escherichia coli
     ethnicity_desc: white
     tfc: general_surgery
-    prophylaxis_group: cefuroxime + metronidazole
-
-
+    prophylaxis_group: 'cefuroxime +/- metronidazole'

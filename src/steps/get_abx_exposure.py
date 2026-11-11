@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.utils import data_cleaning_tools as dct
 
-abx_cfg = dct.load_config("../configs/antibiotics.yaml")
+abx_cfg = dct.load_config(PROJECT_ROOT / 'configs' / 'antibiotics.yaml')
 
 
 def filter_antibiotics(df, medication_col='medication_name_short', abx_cfg = abx_cfg):
@@ -291,7 +291,7 @@ def group_prophylaxis(value: object) -> object:
     limited_enterobact_agents = {
     "vancomycin", "teicoplanin", "daptomycin", "linezolid",
     "clindamycin", "metronidazole",
-    "flucloxacillin (contains penicillin)", "amoxicillin (contains penicillin)", "temocillin (contains penicillin)",
+    "flucloxacillin (contains penicillin)", "amoxicillin (contains penicillin)"
     }
 
     if "co-amoxiclav" in value:
@@ -306,17 +306,18 @@ def group_prophylaxis(value: object) -> object:
     if any(a in value for a in aminoglycosides):
         return "aminoglycoside-based"
 
-    if any(b in value for b in broad_spectrum_beta_lactams):
-        return "broad-spectrum beta-lactam"
-
-    if any(c in value for c in carbapenems):
-        return "carbapenem-based"
-    
-    if any(x in value for x in {"ceftriaxone", "ciprofloxacin", "levofloxacin", "aztreonam", "colistin", "tigecycline"}):
-        return "other_gram_negative_active"
-
     if all(agent.strip() in limited_enterobact_agents for agent in value.split(" | ")):
-        return "limited_enterobact_coverage"
+        return 'limited_enterobact_activity'
+    
+    if (
+        any(x in value for x in {"ceftriaxone", "ciprofloxacin", "levofloxacin", "aztreonam", "colistin", "tigecycline"})
+        or any(b in value for b in broad_spectrum_beta_lactams)
+        or any(c in value for c in carbapenems)
+    ):
+        return "other_broad_spectrum_gram_negative_active"
+    
+    if 'no_prophylaxis' in value:
+        return 'no_prophylaxis'
 
     return "other"
 
@@ -366,8 +367,6 @@ def get_abx_exposure(
 
 
     mcs_df = mcs_df.merge(prophylaxis_df, on="infection_id", how="left")
-
-    mcs_df["prophylaxis_group"] = mcs_df["prophylaxis"].apply(group_prophylaxis)
 
 
     mcs_df = map_prophylaxis_class(mcs_df)

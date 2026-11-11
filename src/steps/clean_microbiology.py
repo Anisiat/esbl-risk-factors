@@ -83,6 +83,10 @@ def run(cfg_path, micro_df_path = 'surgery_microbiology', mcs_out_csv = 'mcs_cle
     logging.info('Grouping microbiology sites...')
 
     surgery_mcs_df = mct.group_specimen_site(surgery_mcs_df)
+
+    # changed this
+    surgery_mcs_df = surgery_mcs_df[surgery_mcs_df['site_grouped'] != 'other']
+
     surgery_screens_df = mct.group_specimen_site(surgery_screens_df)
 
     ekp_organisms = [
@@ -115,7 +119,22 @@ def run(cfg_path, micro_df_path = 'surgery_microbiology', mcs_out_csv = 'mcs_cle
     logging.info('Mapping tfc/msc codes in maicrobiology df...')
     
     surgery_mcs_df = smt.map_codes(surgery_mcs_df, tfc_mapping, col = 'treatment_function_code', new_col= 'tfc_desc')
-    surgery_mcs_df = smt.map_codes(surgery_mcs_df, main_specialty_mapping, col = 'main_specialty_code', new_col= 'main_specialty')
+
+    # rows with non missing tfc get mapped to 'other'
+
+    source = surgery_mcs_df['treatment_function_code']
+
+    has_source = (
+        source.notna()
+        & source.astype('string').str.strip().ne('').fillna(False)
+    )
+
+    unmapped = has_source & surgery_mcs_df['tfc_desc'].isna()
+
+    surgery_mcs_df.loc[unmapped, 'tfc_desc'] = 'other'
+
+
+    # surgery_mcs_df = smt.map_codes(surgery_mcs_df, main_specialty_mapping, col = 'main_specialty_code', new_col= 'main_specialty')
 
 
     # logging.info('Resolving conflicting surgery codes...')

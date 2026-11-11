@@ -20,7 +20,7 @@ from src.utils import data_cleaning_tools as dct
 # =========================
 def get_surgery_features(df: pd.DataFrame) -> pd.DataFrame:
 
-    tfc_cfg = dct.load_config("../configs/tfc.yaml")
+    tfc_cfg = dct.load_config(PROJECT_ROOT / "configs" / "tfc.yaml")
 
     
     
@@ -58,8 +58,12 @@ def get_surgery_features(df: pd.DataFrame) -> pd.DataFrame:
     # -------------------------
     # 4. Time delta: surgery → infection
     # -------------------------
+
+    surgery_date = df['surgery_start_dt'].dt.normalize()
+    infection_date = df['infection_ep_start'].dt.normalize()
+
     df["days_from_surgery_to_infection"] = (
-        df["infection_ep_start"] - df["surgery_start_dt"]
+        infection_date - surgery_date
     ).dt.days
 
     # -------------------------
@@ -96,6 +100,11 @@ def get_surgery_features(df: pd.DataFrame) -> pd.DataFrame:
     
     df["tfc_group"] = df["tfc_desc"].map(tfc_cfg['tfc_mapping'])
 
+    print('TFC CODES')
+    print(df["tfc_group"].value_counts(dropna = False))
+
+    nan_tfc = df[df['tfc_group'].isna()]
+    print(nan_tfc['tfc_desc'].value_counts(dropna=False))
 
     return df
 

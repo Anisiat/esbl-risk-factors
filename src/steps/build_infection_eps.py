@@ -15,7 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.utils import data_cleaning_tools as dct
 
 
-def mode_or_first(series):
+def mode_or_first(series, deprioritise=('other',)):
     """
     Return most common non-null value.
     If tie, return first encountered mode.
@@ -24,8 +24,16 @@ def mode_or_first(series):
 
     if s.empty:
         return np.nan
+    
+    preferred = s[~s.isin(deprioritise)]
 
-    return s.mode().iloc[0]
+    if not preferred.empty:
+        s = preferred
+    
+    counts = s.value_counts()
+    top = set(counts[counts == counts.max()].index)
+    
+    return next(v for v in s if v in top)
 
 
     
@@ -58,8 +66,7 @@ def resolve_site_value(sites: pd.Series):
         "wound": 5,
         "sputum": 6,
         "tissue/biopsy": 7,
-        "high_vaginal": 8,
-        "low_vaginal": 9,
+        "other": 8,
     }
 
     sites_set = set(pd.Series(sites).dropna().astype(str).str.strip().str.lower())
@@ -104,11 +111,11 @@ def build_infection_eps(df, group_col='infection_id'):
         .agg(
             # identifiers / demographics / admission context
             subject=('subject', 'first'),
-            #spell_identifier=('spell_identifier', 'first'),
+            spell_identifier=('spell_identifier', 'first'),
             admission_date=('admission_date', 'first'),
             discharge_date=('discharge_date', 'first'),
             age_at_admission=('age_at_admission', 'first'),
-            discharge_destination=('discharge_destination', 'first'),
+            # discharge_destination=('discharge_destination', 'first'),
             imd_decile=('index_of_multiple_deprivation_decile', 'first'),
             is_emergency=('is_emergency', 'first'),
 
@@ -137,6 +144,7 @@ def build_infection_eps(df, group_col='infection_id'):
             n_surgeries=('surgery_start_dt', 'nunique'),
             procedure_descs=('procedure_desc', unique_joined),
             surgery_length = ('surgery_length_hours', 'max'),
+            surgical_area = ('surgical_area', unique_joined),
 
             # existing episode variables from upstream processing
             infection_ep_start=('infection_ep_start', 'min'),

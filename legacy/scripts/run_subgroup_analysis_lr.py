@@ -1,5 +1,12 @@
 from pathlib import Path
+import sys
 import statsmodels.api as sm
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def prepare_subgroup_analysis_df(df):
@@ -302,9 +309,9 @@ def run_lr_for_all_strata(
     return results_df, errors_df
 
 
-def main(cfg_path="config.yaml"):
+def main(cfg_path=CONFIG_PATH):
 
-    from src.utils import load_config
+    from src.utils.data_cleaning_tools import load_config
     import pandas as pd
 
     config = load_config(cfg_path)

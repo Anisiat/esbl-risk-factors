@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.utils import data_cleaning_tools as dct
 
-cfg = dct.load_config("../configs/config.yaml")
+cfg = dct.load_config(PROJECT_ROOT / 'configs' / 'config.yaml')
 
 
 

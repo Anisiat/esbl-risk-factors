@@ -65,9 +65,7 @@ def run(cfg_path, out_csv_name = 'demographics_clean.csv', save=True, return_df=
     # -----------------------------
     # Load and clean datasets
     # -----------------------------
-
     logging.info("Loading datasets...")
-    
 
     demographics_path = PROJECT_ROOT / paths['demographics']
     ethnicity_lookup_path = PROJECT_ROOT / paths['ethnicity_lookup']
@@ -90,14 +88,23 @@ def run(cfg_path, out_csv_name = 'demographics_clean.csv', save=True, return_df=
     logging.info(f"Keeping demographics columns: {config_cols['demographics']}")
 
     demographics_df = demographics_df[config_cols['demographics']]
-
    
     demographics_df = demographics_df[['subject', 'gender', 'death_date', 'ethnicity_desc']]
+
+    recovered_ids = {
+    '3069cf1197be282287a320e7e3fbb5fd8811e12a2eeb7f4370c06e213bff89a4': 'white',
+      '13d6c0db5d73c31ea92f5940b6622798631b7abea9f1604a8fda8e614cd78e73': 'white',
+        'd4375dd15e873af8232d9fee83404369ab4e8170ea40c28406bef378b96d1d82': 'white'}
+    
+
+    to_fill = (demographics_df['subject'].isin(recovered_ids.keys())) 
+
+    demographics_df.loc[to_fill, 'ethnicity_desc'] = demographics_df.loc[to_fill, 'subject'].map(recovered_ids)            
     
     ethnicity_map = {
         
         # other
-        "other - any other ethnic group": "other_unknown",
+        "other - any other ethnic group": "other",
         "other - not stated": "other_unknown",
         "other - not known": "other_unknown",
         "not known": "other_unknown", 
@@ -119,16 +126,23 @@ def run(cfg_path, out_csv_name = 'demographics_clean.csv', save=True, return_df=
         "black or black british - african": "black",
         "black or black british - caribbean": "black",
         "black - any other black background": "black",
+
+        'mixed - any other mixed background': 'mixed',
+        'mixed - white and black caribbean': 'mixed',     
+        'mixed - white and asian': 'mixed',
+        'mixed - white and black african': 'mixed'
     
     }
-    
     
     demographics_df["ethnicity_desc"] = (
         demographics_df["ethnicity_desc"]
         .replace(ethnicity_map)
-        .fillna("other")
+        # .fillna("other")
     )
-    
+
+    print('after mapping')
+    print(demographics_df["ethnicity_desc"].value_counts())
+
     demo_counts = demographics_df['ethnicity_desc'].value_counts().reset_index()
     sparse_demo = demo_counts[demo_counts['count'] < 30]['ethnicity_desc']
     
@@ -136,8 +150,6 @@ def run(cfg_path, out_csv_name = 'demographics_clean.csv', save=True, return_df=
         demographics_df['ethnicity_desc'].isin(sparse_demo),
         'ethnicity_desc'
     ] = pd.NA
-       
-
 
     # ------------------- SAVE ---------------------------------------
 
@@ -158,11 +170,10 @@ def run(cfg_path, out_csv_name = 'demographics_clean.csv', save=True, return_df=
 
 if __name__ == "__main__":
      # Expect: python data_cleaning.py <config.yaml> <output.csv>
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         logging.warning("Usage: python clean_demographics.py <config.yaml> <clean_demographics.csv>")
         sys.exit(1)
 
     cfg_path = sys.argv[1]
-    out_csv_name  = sys.argv[2]
 
-    run(cfg_path, out_csv_name )
+    run(cfg_path)

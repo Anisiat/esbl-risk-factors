@@ -1,3 +1,173 @@
+"""Run multivariable logistic regression for the ESBL analysis.
+
+    python run_multivariable_lr.py  --cluster-by-patient --fit-mode full
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+# import statsmodels as sm
+import statsmodels.api as sm
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
+
+import pandas as pd
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.append(str(SRC_DIR))
+
+from utils import lr_helper_functions as lrh
+
+
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "lr_data.csv"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "multivariable_lr"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run multivariable logistic regression from LR-ready data."
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help="Path to config YAML. Defaults to configs/config.yaml.",
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT_PATH,
+        help="Path to lr_data.csv from run_univariable_lr.py.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for output CSV files. Defaults to outputs/multivariable_lr/.",
+    )
+    parser.add_argument(
+        "--episodes",
+        choices=["all", "first"],
+        default="all",
+        help="Use all infection episodes or only the first episode per subject.",
+    )
+
+    parser.add_argument(
+        "--cluster-by-patient",
+        action="store_true",
+        help="Use patient-level cluster-robust standard errors.",
+    )
+
+    parser.add_argument(
+        "--variables-file",
+        type=Path,
+        default= PROJECT_ROOT / 'outputs' / 'univariable_lr'/ 'all_episodes'/ 'cluster_by_patient' / 'variables_for_multivariable_lr.csv',
+        help=(
+            "Optional CSV with a predictor column. If supplied, fit only those "
+            "predictors instead of all configured predictors."
+        ),
+    )
+    parser.add_argument(
+        "--correlation-threshold",
+        type=float,
+        default=0.7,
+        help="Absolute correlation threshold for multicollinearity screening.",
+    )
+    parser.add_argument(
+        "--vif-threshold",
+        type=float,
+        default=5.0,
+        help="VIF threshold for flagging possible multicollinearity.",
+    )
+
+    parser.add_argument(
+        "--fit-mode",
+        choices= ['full', 'train-test'],
+        default= 'full',
+        help="Use all complete cases for model fitting or fit on a train split and evaluate on held-out test-set",
+    )
+
+    parser.add_argument(
+        "--decision-threshold",
+        type=float,
+        default=0.5,
+        help='probability threshold for test-set classification metrics,'
+
+    )
+
+    return parser.parse_args()
+
+
+def resolve_path(path: Path) -> Path:
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def load_config(config_path: Path) -> dict:
+    try:
+        from utils import data_cleaning_tools as dct
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "Could not import the repo config loader. Make sure the project "
+            "environment is active and dependencies such as PyYAML are installed."
+        ) from exc
+
+    return dct.load_config(config_path)
+
+
+def write_outputs(
+    output_dir: Path,
+    model_df: pd.DataFrame,
+    results_df: pd.DataFrame,
+    epv_df: pd.DataFrame,
+    vif_df: pd.DataFrame,
+    high_vif_df: pd.DataFrame,
+    corr_matrix: pd.DataFrame,
+    high_corr_df: pd.DataFrame,
+    summary_df: pd.DataFrame,
+    logistic_coefficients: pd.DataFrame
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    model_df.to_csv(output_dir / "multivariable_lr_model_data.csv", index=False)
+    results_df.to_csv(output_dir / "multivariable_lr_results.csv", index=False)
+    epv_df.to_csv(output_dir / "epv.csv", index=False)
+    vif_df.to_csv(output_dir / "vif.csv", index=False)
+    high_vif_df.to_csv(output_dir / "high_vif.csv", index=False)
+    corr_matrix.to_csv(output_dir / "correlation_matrix.csv")
+    high_corr_df.to_csv(output_dir / "high_correlation_pairs.csv", index=False)
+    summary_df.to_csv(output_dir / "model_summary.csv", index=False)
+    logistic_coefficients.to_csv(output_dir / 'logistic_coefficients.csv')
+
+def validate_split_args(test_size:float, decision_threshold:float) ->None:
+    if not 0< test_size <1:
+        raise ValueError('--test-size must be between 0 and 1')
+
+    if not 0< decision_threshold <1 :
+        raise ValueError(
+            '--decision-threshold must be between 0 and 1'
+            )
+
+def get_stratified_labels(y: pd.Series) -> pd.Series:
+    'return y for stratified splitting if both outcome classes can be split'
+
+    class_counts = y.value_counts(dropna = False)
+
+    if len(class_counts) < 2 or class_counts.min() <2:
+        logging.warning(
+            'Train/test split will not be stratified bc an outcome clas has fewwer than two complete cases'
+        )
+        return None
+
+    return y
+
 def main() -> None:
     """Run the multivariable logistic regression workflow."""
 

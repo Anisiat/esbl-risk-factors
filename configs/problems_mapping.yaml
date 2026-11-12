@@ -55,13 +55,13 @@ type2_diabetes:
   - "type 2 diabetic on insulin"
   - "type 2 dm"
 
-type1_diabetes:
-  - "type 1 diabetes mellitus"
-  - "diabetes mellitus type 1"
-  - "insulin dependent diabetes mellitus type 1a"
-  - "type 1 diabetes mellitus"
-  - "diabetes type 1"
-  - "diabetes mellitus type i"
+# type1_diabetes:
+#   - "type 1 diabetes mellitus"
+#   - "diabetes mellitus type 1"
+#   - "insulin dependent diabetes mellitus type 1a"
+#   - "type 1 diabetes mellitus"
+#   - "diabetes type 1"
+#   - "diabetes mellitus type i"
 
 myocardial_infarction:
   - "mi - myocardial infarction"

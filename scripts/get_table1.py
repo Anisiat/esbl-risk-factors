@@ -50,12 +50,7 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUTPUT_DIR,
         help="Directory for output files. Defaults to outputs/table1/.",
     )
-    parser.add_argument(
-        "--include-non-surgical",
-        action="store_true",
-        help="Do not restrict to surgery_before_infection == 1.",
-    )
-   
+
     parser.add_argument(
         "--no-latex",
         action="store_true",
@@ -65,11 +60,6 @@ def parse_args() -> argparse.Namespace:
         "--print",
         action="store_true",
         help="Print the TableOne object to stdout.",
-    )
-    parser.add_argument(
-        "--first_episode_only",
-        action="store_true",
-        help="Only include the first episode for each subject in Table 1 (instead of all episodes).",
     )
     return parser.parse_args()
 
@@ -96,7 +86,7 @@ def clean_missing(value: object) -> object:
         value_clean = value.strip().lower()
         if value_clean in {
             "unknown",
-            "other",
+            # "other",
             "other_unknown",
             "none",
             "nan",
@@ -117,50 +107,12 @@ def clean_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 def load_analysis_data(path: Path, surgery_only: bool = True) -> pd.DataFrame:
     analysis_df = pd.read_csv(path)
 
-    if surgery_only:
-        if "surgery_before_infection" not in analysis_df.columns:
-            raise KeyError(
-                "Cannot filter to surgical patients because "
-                "'surgery_before_infection' is missing."
-            )
-        analysis_df = analysis_df[analysis_df["surgery_before_infection"] == 1].copy()
-
     return analysis_df
 
 
-def regroup_prophylaxis(value: object) -> object:
-    if pd.isna(value):
-        return pd.NA
 
-    value = str(value).lower().strip()
-
-    if "cefuroxime" in value and "metronidazole" in value:
-        return "cefuroxime + metronidazole"
-    if "co-amoxiclav" in value:
-        return "co-amoxiclav-based"
-    if "glycopeptide" in value or "teicoplanin" in value or "vancomycin" in value:
-        return "glycopeptide-based"
-    if "aminoglycoside" in value or "gentamicin" in value:
-        return "aminoglycoside-based"
-    if "clindamycin" in value:
-        return "clindamycin-based"
-    if "metronidazole" in value:
-        return "metronidazole-only/+other"
-    if "cefuroxime" in value:
-        return "cefuroxime-only/+other"
-    if "piperacillin-tazobactam" in value:
-        return "broad-spectrum beta-lactam"
-
-    return "other"
-
-
-def apply_prophylaxis_ethnicity_gender_maps(analysis_df: pd.DataFrame) -> pd.DataFrame:
+def apply_ethnicity_gender_maps(analysis_df: pd.DataFrame) -> pd.DataFrame:
     analysis_df = analysis_df.copy()
-
-    if "prophylaxis_group" in analysis_df.columns:
-        analysis_df["prophylaxis_group"] = analysis_df["prophylaxis_group"].apply(
-            regroup_prophylaxis
-        )
 
     if "ethnicity_desc" in analysis_df.columns:
         analysis_df["ethnicity_desc"] = analysis_df["ethnicity_desc"].replace(
@@ -192,18 +144,8 @@ def validate_table1_columns(analysis_df: pd.DataFrame, table1_config: dict) -> N
 
 
 def get_numeric_columns(table1_config: dict) -> list[str]:
-    numeric_cols = list(table1_config.get("nonnormal", []))
-    numeric_cols.extend(
-        [
-            "imd_decile",
-            "age_at_admission",
-            "length_of_stay_days",
-            "temp",
-            "crp",
-        ]
-    )
 
-    return list(dict.fromkeys(numeric_cols))
+    return list(table1_config.get("nonnormal", []))
 
 
 def get_table1_df(analysis_df: pd.DataFrame, table1_config: dict) -> pd.DataFrame:
@@ -215,17 +157,6 @@ def get_table1_df(analysis_df: pd.DataFrame, table1_config: dict) -> pd.DataFram
             table1_df[col] = pd.to_numeric(table1_df[col], errors="coerce")
 
     return table1_df
-
-
-def groupby_first_episode(table1_df: pd.DataFrame) -> pd.DataFrame:
-
-    # Get table one either for all episodes, or stratified/group by subject or first episode 
-    table1_df = table1_df.copy()
-
-    table1_df = table1_df.sort_values("admission_date").groupby("subject").first().reset_index()
-
-    return table1_df
-
 
 
 def create_table1(table1_df: pd.DataFrame, table1_config: dict):
@@ -251,7 +182,7 @@ def create_table1(table1_df: pd.DataFrame, table1_config: dict):
         categorical=categorical,
         groupby=table1_config["groupby"],
         nonnormal=nonnormal,
-        pval=True,
+        pval=False,
         missing=True,
         include_null=False,
     )
@@ -292,20 +223,12 @@ def main() -> None:
 
     logging.info("Loading analysis data from %s", input_path)
     analysis_df = load_analysis_data(
-        input_path,
-        surgery_only=not args.include_non_surgical,
+        input_path
     )
 
     validate_table1_columns(analysis_df, table1_config)
 
-    analysis_df = apply_prophylaxis_ethnicity_gender_maps(analysis_df)
-
-    if args.first_episode_only:
-        required = {"subject", "admission_date"}
-        missing = required - set(analysis_df.columns)
-        if missing:
-            raise KeyError(f"Missing columns needed for first episode selection: {missing}")
-        analysis_df = groupby_first_episode(analysis_df)
+    analysis_df = apply_ethnicity_gender_maps(analysis_df)
 
     table1_df = get_table1_df(analysis_df, table1_config)
     table1 = create_table1(table1_df, table1_config)

@@ -1,6 +1,4 @@
 # Group prophylaxis course based on expected gram-negative selection pressure
-
-
 THERAPEUTIC_AGENTS:
   - "piperacillin-tazobactam"
   - "ciprofloxacin"

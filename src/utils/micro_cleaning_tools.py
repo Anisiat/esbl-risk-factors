@@ -4,9 +4,6 @@ import numpy as np
 import re
 import logging 
 import sys
-
-
-
 # -----------------------------
 # Report new ESBL numbers
 # -----------------------------
@@ -100,7 +97,8 @@ def label_esbl_status(row, ceph_r_set, ceph_s_set):
     cefpo = row.get('cefpodoxime')
     marker = row.get('esbl markers (ss = present)')
 
-    marker_positive = marker in ['sensitive', 'susceptible', 'susceptible with optimised dosing, refer to antimicrobial policy']
+    marker_positive = marker in (
+        ['sensitive', 'susceptible', 'susceptible with optimised dosing, refer to antimicrobial policy'])
     marker_negative = marker == 'resistant'
 
     
@@ -129,7 +127,7 @@ def label_esbl_status(row, ceph_r_set, ceph_s_set):
 
 
 # -----------------------------
-# Drop unneccessary columns 
+# Drop unnecessary columns
 # -----------------------------
 
 def drop_columns(df, cfg):
@@ -367,7 +365,8 @@ def group_specimen_site(
 def split_microbiology_screens(
                         microbiology_df,
                         screen_codes = ['crocul', 'itucul', 'rgns', 'xincul'],
-                        screens_df_cols = ['subject', 'admission_date', 'lab_test_id', 'latest_collect_dt', 'latest_received_dt', 'latest_result_dt', 'culture_type','site', 'organism_bug', 'culture_code', 'esbl_status']
+                        screens_df_cols = (
+                            ['subject', 'admission_date', 'lab_test_id', 'latest_collect_dt', 'latest_received_dt', 'latest_result_dt', 'culture_type','site', 'organism_bug', 'culture_code', 'esbl_status'])
 ):
     """
     Split a microbiology table into:
@@ -393,7 +392,7 @@ def split_microbiology_screens(
     # check if patients had a screen 
     all_microbiology = microbiology_df.copy()
 
-    required_cols = ['culture_code', 'latest_collect_dt', 'surgery_start_dt']
+    required_cols = ['site', 'culture_code', 'latest_collect_dt', 'surgery_start_dt']
     
     for c in required_cols:
         if c not in all_microbiology.columns:
@@ -407,7 +406,20 @@ def split_microbiology_screens(
 
     # only keep screens collected before surgery
 
-    mask_screen = all_microbiology['culture_code'].isin(screen_codes)
+    #  screening identified by laboratory culture code
+    mask_code_screen = (
+        all_microbiology['culture_code'].astype('string').str.strip().str.lower().isin([str(code).strip().lower() for code in screen_codes])
+        )
+    site_normalised = (
+        all_microbiology['site']
+        .astype('string')
+        .str.strip()
+        .str.lower()
+        )
+
+    mask_rectal_screen = site_normalised.isin(['rectal swab', 'rectum', 'rectal'])
+
+    mask_screen = mask_code_screen | mask_rectal_screen
 
     mask_preop_screen = mask_screen & ( all_microbiology['latest_collect_dt'] < all_microbiology['surgery_start_dt'])
 
@@ -415,7 +427,9 @@ def split_microbiology_screens(
     microbiology_screens_df = microbiology_screens_df.copy().drop(columns=["culture_code"], axis=1)
     microbiology_clean_df   = all_microbiology.loc[~mask_screen].copy()
     microbiology_clean_df = microbiology_clean_df.copy().drop(columns=["culture_code"], axis=1)
-    
+
+    other_sites = microbiology_clean_df[microbiology_clean_df['site'] == 'other']['site'].value_counts()
+    print(f'these are other sites: {other_sites}')
     return microbiology_clean_df, microbiology_screens_df
     
     

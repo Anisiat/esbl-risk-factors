@@ -17,7 +17,7 @@ import pandas as pd
 def remove_unknowns(df: pd.DataFrame) -> pd.DataFrame:
     """Replace common unknown/missing string labels with ``pd.NA``."""
     unknown_values = [
-        "other",
+        # "other",
         "other_unknown",
         "unknown",
         "unk",
@@ -31,71 +31,14 @@ def remove_unknowns(df: pd.DataFrame) -> pd.DataFrame:
     return df.copy().replace(to_replace=unknown_values, value=pd.NA)
 
 
-def load_analysis_data(path: Path, surgery_only: bool = True) -> pd.DataFrame:
-    """Load ``analysis_df`` and optionally keep only surgical infection episodes."""
+def load_analysis_data(path: Path) -> pd.DataFrame:
+    """Load ``analysis_df``."""
     analysis_df = pd.read_csv(path)
-
-    if surgery_only:
-        if "surgery_before_infection" not in analysis_df.columns:
-            raise KeyError(
-                "Cannot filter to surgical patients because "
-                "'surgery_before_infection' is missing."
-            )
-        analysis_df = analysis_df[analysis_df["surgery_before_infection"] == 1].copy()
 
     return analysis_df
 
 
-def group_prophylaxis(value: object) -> object:
-    """Collapse raw prophylaxis strings into broader analysis groups."""
-    if pd.isna(value):
-        return pd.NA
-
-    value = str(value).lower().strip()
-
-    aminoglycosides = {"gentamicin", "amikacin", "tobramycin", "streptomycin"}
-    broad_spectrum_beta_lactams = {"piperacillin-tazobactam", "tazocin", "tazobactam", "piperacillin"}
-    carbapenems = {"ertapenem", "meropenem", "imipenem", "doripenem"}
-    penicillins = {"flucloxacillin", "amoxicillin", "temocillin"}
-
-    if "co-amoxiclav" in value:
-        return "co-amoxiclav-based"
-
-    if "cefuroxime" in value and "metronidazole" in value and any(a in value for a in aminoglycosides):
-        return "cefuroxime + metronidazole + aminoglycoside"
-
-    if "cefuroxime" in value:
-        return "cefuroxime +/- metronidazole"
-
-    if any(a in value for a in aminoglycosides):
-        return "aminoglycoside-based"
-
-    if any(b in value for b in broad_spectrum_beta_lactams):
-        return "broad-spectrum beta-lactam"
-
-    if any(c in value for c in carbapenems):
-        return "carbapenem-based"
-
-    if "glycopeptide" in value or "teicoplanin" in value or "vancomycin" in value or "daptomycin" in value or "linezolid" in value:
-        return "glycopeptide-based"
-
-    if "clindamycin" in value:
-        return "clindamycin-based"
-    
-    if any(p in value for p in penicillins):
-        return "penicillin-based"
-
-    if "metronidazole" in value:
-        return "metronidazole-only/+other"
-
-
-    return "other"
-
-prophylaxis_combinations["prophylaxis_group"] = prophylaxis_combinations["prophylaxis"].apply(group_prophylaxis)
-prophylaxis_combinations[prophylaxis_combinations["prophylaxis_group"] == "other"]
-
-
-def apply_prophylaxis_ethnicity_gender_maps(analysis_df: pd.DataFrame) -> pd.DataFrame:
+def apply_ethnicity_gender_maps(analysis_df: pd.DataFrame) -> pd.DataFrame:
     """Apply the recodes used in the LR notebook before modelling.
 
     This currently regroups prophylaxis, collapses mixed ethnicity labels to
@@ -103,21 +46,17 @@ def apply_prophylaxis_ethnicity_gender_maps(analysis_df: pd.DataFrame) -> pd.Dat
     """
     analysis_df = analysis_df.copy()
 
-    if "prophylaxis_group" in analysis_df.columns:
-        analysis_df["prophylaxis_group"] = analysis_df["prophylaxis_group"].apply(
-            regroup_prophylaxis
-        )
 
-    if "ethnicity_desc" in analysis_df.columns:
-        analysis_df["ethnicity_desc"] = analysis_df["ethnicity_desc"].replace(
-            {
-                "mixed - any other mixed background": "mixed",
-                "mixed - white and black caribbean": "mixed",
-                "mixed - white and asian": "mixed",
-                "mixed - white and black african": "mixed",
-                "mixed": pd.NA,
-            }
-        )
+    # if "ethnicity_desc" in analysis_df.columns:
+    #     analysis_df["ethnicity_desc"] = analysis_df["ethnicity_desc"].replace(
+    #         {
+    #             "mixed - any other mixed background": pd.NA,
+    #             "mixed - white and black caribbean": pd.NA,
+    #             "mixed - white and asian": pd.NA,
+    #             "mixed - white and black african": pd.NA,
+    #             "mixed": pd.NA,
+    #         }
+    #     )
 
     if "gender" in analysis_df.columns:
         non_missing_gender = set(analysis_df["gender"].dropna().unique())
@@ -244,6 +183,7 @@ def run_univariable_numeric_lr(
     variables: list[str],
     outcome: str,
     model_type: str,
+    cluster_col = None
 ) -> pd.DataFrame:
     """Fit one univariable logistic model per numeric or binary predictor."""
     import statsmodels.formula.api as smf
@@ -251,10 +191,18 @@ def run_univariable_numeric_lr(
     results = []
 
     for var in variables:
-        model_df = uni_lr_df[[outcome, var]].dropna()
+        cols = [outcome, var]+ ([cluster_col] if cluster_col else [])
+        model_df = uni_lr_df[cols].dropna()
+        formula = f"{outcome} ~ {var}"
 
         try:
-            model = smf.logit(f"{outcome} ~ {var}", data=model_df).fit(disp=0)
+            fit_kwargs = {'disp': 0}
+            if cluster_col:
+                fit_kwargs.update(
+                    cov_type = 'cluster',
+                    cov_kwds = {'groups':pd.factorize(model_df[cluster_col])[0]},
+                )
+            model = smf.logit(formula, data=model_df).fit(**fit_kwargs)
             conf = model.conf_int().loc[var]
             coef = model.params[var]
 
@@ -300,6 +248,7 @@ def run_univariable_categorical_lr(
     categorical_vars: list[str],
     outcome: str,
     reference_levels: dict[str, str],
+    cluster_col = None
 ) -> pd.DataFrame:
     """Fit one univariable logistic model per categorical predictor.
 
@@ -312,7 +261,8 @@ def run_univariable_categorical_lr(
     results = []
 
     for var in categorical_vars:
-        model_df = uni_lr_df[[outcome, var]].dropna()
+        cols = [outcome, var]+ ([cluster_col] if cluster_col else [])
+        model_df = uni_lr_df[cols].dropna()
         reference = reference_levels.get(var)
 
         if reference is not None and reference in set(model_df[var].dropna()):
@@ -322,7 +272,13 @@ def run_univariable_categorical_lr(
             reference = pd.NA
 
         try:
-            model = smf.logit(formula, data=model_df).fit(disp=0)
+            fit_kwargs = {'disp': 0}
+            if cluster_col:
+                fit_kwargs.update(
+                    cov_type = 'cluster',
+                    cov_kwds = {'groups':pd.factorize(model_df[cluster_col])[0]},
+                )
+            model = smf.logit(formula, data=model_df).fit(**fit_kwargs)
             conf = model.conf_int()
 
             for term in model.params.index:
@@ -429,6 +385,10 @@ def get_model_dataframe(
     reference_levels = lr_config.get("reference_levels", {})
 
     validate_model_columns(df, outcome, predictors)
+
+    # drop nan
+
+    df = df.dropna(subset = [outcome] + predictors).copy()
 
     y = encode_outcome(df[outcome])
     X = df[predictors].copy()
@@ -610,6 +570,57 @@ def fit_multivariable_lr(
     return results, results_df
 
 
+def get_roc_curve_info(X_test, y_test, model):
+    from sklearn.metrics import roc_curve, roc_auc_score
+    import statsmodels.api as sm
+    import pandas as pd
+
+    X_test = sm.add_constant(X_test, has_constant = 'add')
+
+    y_pred_prob = model.predict(X_test)
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
+
+    auc = roc_auc_score(y_test, y_pred_prob)
+
+    roc_curve_info = pd.DataFrame(
+        {
+            'fpr': fpr,
+            'tpr': tpr,
+            'auc' : auc
+        }
+    )
+    return roc_curve_info
+
+
+def bootstrap_auroc_ci(y_true, y_pred, n_bootstraps = 1000, random_state = 42):
+    from sklearn.metrics import roc_auc_score
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(random_state)
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+
+    aucs = []
+
+    for _ in range(n_bootstraps):
+        idx = rng.integers(0, len(y_true), len(y_true))
+
+        if len(np.unique(y_true[idx])) <2:
+            continue
+
+        aucs.append(roc_auc_score(y_true[idx], y_pred[idx]))
+
+    return pd.DataFrame(
+        [{
+            'auroc': roc_auc_score(y_true, y_pred),
+            'ci_lower': np.percentile(aucs, 2.5),
+            'ci_upper': np.percentile(aucs, 97.5),
+            'n_bootstraps' :len(aucs),
+        }]
+    )
+
+
 def get_model_summary(model) -> pd.DataFrame:
     """Return convergence and fit statistics for a fitted statsmodels model."""
     mle_retvals = getattr(model, "mle_retvals", {})
@@ -703,8 +714,8 @@ def plot_adjusted_or_forest(
         "crp": "CRP",
         "days_from_admission_to_first_culture": "Days from admission to first culture",
         "gender": "Gender",
-        "hypertension": "Hypertension",
         "inpatient_exposure_90d": "Hospital exposure in previous 90 days",
+        "hypertension": "Hypertension",
         "past_abx": "Prior antibiotics",
         "prior_positive_esbl": "Prior ESBL-positive culture",
         "surgery_length": "Surgery length",

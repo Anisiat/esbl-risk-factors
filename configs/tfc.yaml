@@ -3,6 +3,7 @@ tfc_mapping:
   # Hepatobiliary / colorectal
   "hepatobiliary & pancreatic surgery": "abdominal_gi"
   "colorectal surgery": "abdominal_gi"
+  'upper gastrointestinal surgery' : "abdominal_gi"
 
   # General
   "general surgery": "general_surgery"
@@ -33,10 +34,4 @@ tfc_mapping:
   # Vascular
   "vascular surgery": "vascular"
 
-  
-  "medical oncology": "other"
-  "respiratory medicine": "other"
-  "ophthalmology": "other"
-  "hepatology": "other"
-  "transplantation surgery": "other"
-  "paediatric intensive care": "other"
+

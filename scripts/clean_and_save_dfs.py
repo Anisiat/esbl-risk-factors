@@ -76,7 +76,9 @@ def run_steps(cfg_path = CONFIG_PATH, verbose = False):
     # 4. Build final infection episode table
     infection_eps = build_infection_eps(mcs_id_abx_surgery_df)
 
-    infection_eps.to_csv('../../esbl_risk_factors/data/processed/infection_eps.csv', index = False)
+    infection_eps_path = DATA_DIR / 'processed' / 'infection_eps.csv'
+    infection_eps_path.parent.mkdir(parents=True, exist_ok=True)
+    infection_eps.to_csv(infection_eps_path, index = False)
 
     logging.info('Merging datasets to get final analysis_df...')
 

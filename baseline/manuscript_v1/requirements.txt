@@ -1,0 +1,14 @@
+# Pinned to the iCARE SDE environment (pip freeze, 2026-11-11).
+# Python 3.10 or 3.11: numpy 1.23.5 has no wheels for 3.12+.
+# PyYAML: the SDE version is not yet confirmed; 6.0.3 is the local version.
+comorbidicare==0.1.0
+matplotlib==3.7.1
+numpy==1.23.5
+openpyxl==3.1.5
+pandas==2.3.3
+PyYAML==6.0.3
+scikit-learn==1.7.2
+scipy==1.15.3
+seaborn==0.13.2
+statsmodels==0.14.6
+tableone==0.9.6

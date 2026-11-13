@@ -96,7 +96,7 @@ def run_steps(cfg_path = CONFIG_PATH, verbose = False):
 
 
     # infer comorbidities from prescriptions then drop <0.1
-    analysis_df = update_comorbidities(analysis_df, cfg_path = cfg_path )
+    analysis_df = update_comorbidities(analysis_df, cfg_path = cfg_path)
 
     # drop comorbidities that have a <10% occurance in the cohort
 

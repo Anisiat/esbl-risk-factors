@@ -48,6 +48,9 @@ multivariable runs read, so keep this order.
 3. `configs/*.yaml` and `config.yaml` paths: unchanged apart from being loaded
    relative to the YAML by `load_config` (earlier local change).
 
+4. `scripts/clean_and_save_dfs.py` line 99: one space removed
+   (`cfg_path = cfg_path )` -> `cfg_path = cfg_path)`). Whitespace only, no effect on results.
+
 Everything else, including known bugs, is deliberately left as it was.
 
 ## Known differences between this code and the manuscript

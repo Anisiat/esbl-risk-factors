@@ -30,10 +30,13 @@ comparator group).
 
 - **Population:** adults (≥18) with elective surgical admissions
   (admission method 11, 12, 13), study window `config.yaml: study_start` to
-  `study_end`. <!-- TODO confirm: Aug vs Sep 2025 end date -->
+  `study_end` (2015-01-01 to 2025-09-30; decided 2026-11-12, the manuscript
+  SQL used surgery stop ≤ 2025-08-31).
 - **Eligible samples:** non-screening clinical specimens, collected
-  postoperatively, ≥48 h after admission, within the surgical spell
-  (surgery → discharge).
+  postoperatively, ≥48 h after admission, and no more than
+  `config.yaml: sample_eligibility.max_days_after_surgery` (30) days after the
+  most recent preceding surgery (decided 2026-11-12). The manuscript used
+  "up to 30 days after discharge"; this is a deliberate CHANGE.
 - **Organisms:** E. coli, K. pneumoniae, K. oxytoca, P. mirabilis only.
 - **Infection episode:** same organism within 14 days = same episode; new
   episode if different organism or same organism >14 days after the previous
@@ -90,7 +93,7 @@ Environment: Python <!-- TODO version -->. All dependencies pinned in
 - Only `outputs/export/` is intended to leave the SDE. It contains aggregate
   tables and figures only — never row-level data.
 - Every export function applies small-number suppression automatically:
-  counts below `config.yaml: suppression_threshold` <!-- TODO 5 or 10 --> are
+  counts below `config.yaml: suppression_threshold` (10) are
   shown as `<N`, with secondary suppression where a suppressed cell could be
   back-calculated from totals.
 - Flowchart counts, Table 1, model tables and subgroup tables all go through
@@ -108,11 +111,37 @@ synthetic/             # generator + schema-matching fake CSVs
 tests/                 # end-to-end synthetic run
 docs/                  # data dictionary, analysis plan
 legacy/                # old scripts, reference only
+baseline/manuscript_v1/ # frozen copy of the SDE code behind the manuscript (read-only)
 ```
 
+Work is in two phases: phase 1 ports the manuscript pipeline from
+`baseline/manuscript_v1/` into `src/esbl_rf/` with tests; phase 2 applies the
+planned changes (comorbidicare CCI, new SQL cohort) one at a time. The new code
+reads the same raw CSVs as the baseline (no SQL re-pull needed).
+
+**Build principle: streamline the baseline, do not redesign it.** The new code
+is built from the baseline code, reusing the same functions and logic, and
+keeping it simple. The aim is a cleaned-up version, not a new architecture.
+When porting each function:
+
+- drop functions the pipeline does not use;
+- split functions that are too long or do several jobs;
+- make fragile code robust (explicit checks, no silent failures, no reliance
+  on row order or string parsing where a proper type exists);
+- move hard-coded paths, dates, thresholds and category lists into
+  `config.yaml`;
+- keep the original function name and behaviour where it works, and state
+  what changed and why.
+
+The structure is built one file at a time, together, with the reasoning
+explained at each step. Phase 1 should reproduce the baseline's results except
+for the changes listed in the analysis plan.
+
 - Each step is a function `run_<step>(cfg) -> DataFrame` that reads the
-  previous checkpoint, writes `data/interim/<step>.parquet`, logs row counts
-  and asserts its own invariants.
+  previous checkpoint, writes `data/interim/<step>.csv`, logs row counts
+  and asserts its own invariants. CSV, not parquet (pyarrow is not in the SDE
+  pins); every load goes through `esbl_rf.io.read_checkpoint`, which restores
+  dates and counts parse failures.
 - No hardcoded paths, dates or categories — everything comes from
   `config.yaml`.
 - Type hints and NumPy-style docstrings, including the dataframe grain.
@@ -137,7 +166,9 @@ Do not report a task as done until the synthetic end-to-end run passes.
 
 - Follow STROBE and RECORD (routinely collected data).
 - Flowchart counts generated automatically at every exclusion step.
-- Table 1 by ESBL status with missingness column; Table 2 with univariable
+- Table 1 by ESBL status with missingness column and **no p-values**
+  (descriptive; CCI as median [IQR] and 0 / 1–2 / ≥3, a subset of Charlson
+  conditions in the main table, all 17 in a supplementary table); Table 2 with univariable
   OR, multivariable aOR (clustered) and first-episode aOR; forest plot;
   subgroup table with n, events and EPV.
 - ORs and 95% CIs to 2 decimal places; p-values to 3 decimal places, `<0.001`

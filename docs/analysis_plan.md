@@ -126,8 +126,8 @@ exposures.
 | Surgical specialty | episodes | treatment_function_code → 9 groups via mapping in `config.yaml` (TODO: supply the TFC → group table) | **General surgery**, Abdominal/GI, Cardiothoracic, Gynaecological oncology, Neurology/ENT, Obstetrics/Gynaecology, Orthopaedic/plastics, Urology/Nephrology, Vascular |
 | Surgery duration | surgery | surgery_stop − surgery_start, hours. TODO: for multi-procedure events, use event start → event stop | continuous |
 | Prophylaxis group | pharmacy admin | perioperative administrations grouped per Table S1. TODO: timing window (e.g. 60 min before to 24 h after incision) | **Cefuroxime ± metronidazole**, Aminoglycoside-based, Cefuroxime ± metronidazole + aminoglycoside, Co-amoxiclav-based, Limited Enterobacterales activity, Broad-spectrum Gram-negative active, No prophylaxis, Other |
-| CCI | comorbidicare | 17 Charlson flags; weighted score; evidence strictly before admission (`--cutoff admission`) | CHANGE: replaces individual comorbidities in models; cci_group categories TODO (e.g. 0, 1–2, ≥3) |
-| Individual comorbidities | comorbidicare | asthma, cancer, COPD, IHD, type 2 diabetes | binary; Table 1 only. TODO: switch Table 1 to the 17 Charlson conditions or keep the original 5? |
+| CCI | comorbidicare | 17 Charlson flags; weighted score; evidence strictly before admission (`--cutoff admission`) | CHANGE: replaces individual comorbidities in models as the continuous `cci_score` (decided 2026-11-13; linearity checked as a sensitivity analysis). `cci_group` (0, 1–2, ≥3) is for Table 1 only |
+| Individual comorbidities | comorbidicare | the 17 Charlson flags (comorbidicare names, listed in `config.yaml: table1.supplementary_conditions`) | binary; descriptive only, no p-values. Main Table 1 shows a subset (decided 2026-11-13: malignancy, metastatic solid tumour, diabetes with/without complication, chronic pulmonary disease, renal disease, congestive heart failure); the supplementary table shows all 17. Asthma, hypertension and IHD are not among the 17 flags, so they are no longer reported |
 | Hospital exposure 90d | prior episodes | inpatient spell overlapping [admission − 90 d, admission); index spell excluded | binary |
 | Emergency exposure 90d | emergency | A&E attendance in [admission − 90 d, admission) | binary |
 | Prior antibiotics 90d | pharmacy admin | any systemic antibiotic in [admission − 90 d, admission) | binary |
@@ -146,9 +146,9 @@ Either add them to the Methods or drop them from the model.
 ## 8. Statistical analysis
 
 1. **Descriptive (Table 1):** by ESBL status, at the episode level. Median
-   [IQR] for continuous variables with Mann–Whitney U; n (%) for categorical
-   variables with χ². Missing column shown. LOS and mortality are reported
-   for the admission linked to each episode.
+   [IQR] for continuous variables; n (%) for categorical variables.
+   Descriptive only: no p-values (decided 2026-11-13). Missing column shown.
+   LOS and mortality are reported for the admission linked to each episode.
 2. **Univariable:** logistic regression per variable; crude OR (95% CI).
 3. **Variable selection:** p < 0.20 or clinically important (prespecified
    list in `config.yaml`: age, sex, prior ESBL, specialty, prophylaxis,
@@ -183,7 +183,7 @@ All outputs go to `outputs/export/`, with small-number suppression applied
 admissions, patients, samples, episodes, esbl_pos, previous_run, change_pct.
 
 **Table 1:** columns Characteristic | Missing | Overall | ESBL-positive |
-Non-ESBL | p-value. Row blocks: Patient characteristics, Surgical
+Non-ESBL (no p-value column). Row blocks: Patient characteristics, Surgical
 characteristics, Clinical history/comorbidities (incl. CCI), Infection
 characteristics (site, organism), Pathology and vitals, Clinical outcomes.
 
@@ -214,3 +214,8 @@ VIF, and the variables dropped or collapsed.
 4. Study end date harmonised across the SQL, manuscript and flowchart.
 5. All counts are compared against the previous run so changes can be
    explained in the revised manuscript.
+6. Table 1: `delta_hours_prophylaxis`, `n_sites`, `n_samples` and
+   `culture_span_days` are summarised as median [IQR] instead of mean (SD)
+   (decided 2026-11-13; skewed counts/durations). `n_sites` and `n_samples`
+   may be recategorised (1 vs ≥2) after the first real run if the median
+   [IQR] is uninformative.

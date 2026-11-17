@@ -45,11 +45,14 @@ SELECT * FROM AT_MICROBIOLOGY_EKP;
 -- OUTPUT CSV: demographics.csv        grain: patient
 SELECT * FROM AT_DEMOGRAPHICS;
 
--- OUTPUT CSV: problems.csv            grain: problem record
+-- OUTPUT CSV: problems.csv            grain: problem record (with SNOMED problem_code)
 SELECT * FROM AT_PROBLEMS;
 
--- OUTPUT CSV: administrations.csv     grain: (spell, medication, class)
-SELECT * FROM AT_ADMINISTRATIONS;
+-- OUTPUT CSV: diagnoses.csv           grain: (subject, spell, ICD code, SNOMED code), earliest date
+SELECT * FROM AT_DIAGNOSES;
+
+-- OUTPUT CSV: prescriptions.csv       grain: (subject, medication), earliest order; comorbidicare medications only
+SELECT * FROM AT_PRESCRIPTIONS;
 
 -- OUTPUT CSV: abx_administrations.csv grain: administration (within window)
 SELECT * FROM AT_ABX_ADMINISTRATIONS;
@@ -57,13 +60,10 @@ SELECT * FROM AT_ABX_ADMINISTRATIONS;
 -- OUTPUT CSV: temperature.csv         grain: observation within spell
 SELECT * FROM AT_TEMPERATURE;
 
--- OUTPUT CSV: pathology.csv           grain: result within spell (infection test codes)
-SELECT * FROM AT_PATHOLOGY;
-
 -- OUTPUT CSV: crp.csv                 grain: result within spell
 SELECT * FROM AT_CRP;
 
--- OUTPUT CSV: prior_healthcare_exposure.csv   grain: (index spell, prior spell)
+-- OUTPUT CSV: prior_inpatient_exposure.csv    grain: (index spell, prior spell)
 SELECT * FROM AT_PRIOR_ADMISSIONS;
 
 -- OUTPUT CSV: prior_emergency_exposure.csv    grain: (index spell, A&E attendance)
@@ -71,6 +71,3 @@ SELECT * FROM AT_PRIOR_EMERGENCY;
 
 -- OUTPUT CSV: prior_outpatient_exposure.csv   grain: (index spell, appointment)
 SELECT * FROM AT_PRIOR_OUTPATIENT;
-
--- OUTPUT CSV: procedures_opcs.csv             grain: (spell, episode, coded procedure); validation only
-SELECT * FROM AT_PROCEDURES_OPCS;

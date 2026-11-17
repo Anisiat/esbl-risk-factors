@@ -7,8 +7,11 @@
 -- READS     AT_INFECTION_SPELLS, STG_EPISODES, ICARE_* tables listed per block,
 --           sandbox lookup LOOKUP_PATHOLOGY_INFECTION_AT
 -- WRITES    AT_DEMOGRAPHICS            patient
---           AT_PROBLEMS                problem record (all history, no window)
---           AT_ADMINISTRATIONS         spell x drug (non-antibiotic classes)
+--           AT_PROBLEMS                problem record (all history, no window), with SNOMED code
+--           AT_DIAGNOSES               (subject, spell, ICD/SNOMED code), earliest date; all history
+--           AT_PRESCRIPTIONS           (subject, medication), earliest order; only the medications
+--                                      comorbidicare maps to a Charlson condition; all history
+--           AT_ADMINISTRATIONS         spell x drug (non-antibiotic classes); built, not exported
 --           AT_ABX_ADMINISTRATIONS     administration, window [admission - lookback, discharge]
 --           AT_TEMPERATURE             observation within the spell
 --           AT_PATHOLOGY               result within the spell (infection test codes)
@@ -51,10 +54,66 @@ CREATE OR REPLACE TABLE AT_PROBLEMS AS
 SELECT
     p.SUBJECT,
     p.ENCNTR_ID,
+    p.PROBLEM_CODE,              -- SNOMED CT; comorbidicare requires it
     p.PROBLEM_DESC,
     p.PROBLEM_DT_TM
 FROM ICHT_PROD.ICARE_ICHT.ICARE_PROBLEMS_ANON p
 WHERE p.SUBJECT IN (SELECT DISTINCT SUBJECT FROM AT_INFECTION_SPELLS);
+
+
+-- Diagnoses (for comorbidities / CCI) ----------------------------------------------
+-- All history of the cohort's patients, because comorbidicare counts only evidence
+-- dated before each admission. One row per (subject, spell, code) with the earliest
+-- date: one record before the cutoff is enough to set a flag. Column names are from
+-- the data dictionary (icare_episodes_diagnosis_anon).
+CREATE OR REPLACE TABLE AT_DIAGNOSES AS
+SELECT
+    d.SUBJECT,
+    d.SPELL_IDENTIFIER,
+    d.DIAGNOSIS_CODE_ICD,
+    d.DIAGNOSIS_CODE_SNOMED,
+    MIN(TRY_TO_TIMESTAMP(d.DIAGNOSIS_DATE::STRING)) AS DIAGNOSIS_DATE
+FROM ICHT_PROD.ICARE_ICHT.ICARE_EPISODES_DIAGNOSIS_ANON d
+WHERE d.SUBJECT IN (SELECT DISTINCT SUBJECT FROM AT_INFECTION_SPELLS)
+GROUP BY d.SUBJECT, d.SPELL_IDENTIFIER, d.DIAGNOSIS_CODE_ICD, d.DIAGNOSIS_CODE_SNOMED;
+
+
+-- Prescriptions (for comorbidities / CCI) ------------------------------------------
+-- comorbidicare 0.1.0 (pinned) maps only these 20 medications to a Charlson
+-- condition (16 chronic pulmonary disease, 4 uncomplicated diabetes), matching names
+-- exactly after lowercasing. List copied from comorbidicare/data/charlson_medication_mapping.csv;
+-- update it if the package version changes. One row per (subject, medication) with the
+-- earliest order: one order before the cutoff is enough to set a flag.
+CREATE OR REPLACE TABLE AT_PRESCRIPTIONS AS
+SELECT
+    p.SUBJECT,
+    LOWER(TRIM(p.MEDICATION_NAME_SHORT))         AS MEDICATION_NAME_SHORT,
+    MIN(TRY_TO_TIMESTAMP(p.ORDER_DT_TM::STRING)) AS ORDER_DT_TM
+FROM ICHT_PROD.ICARE_ICHT.ICARE_PHARMACY_PRESCRIBING_ANON p
+WHERE p.SUBJECT IN (SELECT DISTINCT SUBJECT FROM AT_INFECTION_SPELLS)
+  AND LOWER(TRIM(p.MEDICATION_NAME_SHORT)) IN (
+        'aclidinium',
+        'beclometasone',
+        'beclometasone-formoterol',
+        'beclometasone/formoterol/glycopyrronium',
+        'budesonide',
+        'budesonide-formoterol',
+        'fluticasone',
+        'fluticasone-formoterol',
+        'fluticasone-salmeterol',
+        'fluticasone-vilanterol',
+        'fluticasone/umeclidinium/vilanterol',
+        'glycopyrronium',
+        'glycopyrronium-indacaterol',
+        'tiotropium',
+        'umeclidinium',
+        'umeclidinium-vilanterol',
+        'alogliptin',
+        'gliclazide',
+        'linagliptin',
+        'sitagliptin'
+  )
+GROUP BY p.SUBJECT, LOWER(TRIM(p.MEDICATION_NAME_SHORT));
 
 
 -- Non-antibiotic drug classes administered during the spell ---------------------
@@ -249,6 +308,8 @@ INNER JOIN ICHT_PROD.ICARE_ICHT.ICARE_EPISODES_PROCEDURES_ANON p
 SELECT 'AT_INFECTION_SPELLS (reference)' AS table_name, COUNT(*) AS n_rows, COUNT(DISTINCT SUBJECT) AS n_subjects, IFF(COUNT(*) = 0, 'EMPTY', 'OK') AS check_result FROM AT_INFECTION_SPELLS
 UNION ALL SELECT 'AT_DEMOGRAPHICS',        COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_DEMOGRAPHICS
 UNION ALL SELECT 'AT_PROBLEMS',            COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_PROBLEMS
+UNION ALL SELECT 'AT_DIAGNOSES',           COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_DIAGNOSES
+UNION ALL SELECT 'AT_PRESCRIPTIONS',       COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_PRESCRIPTIONS
 UNION ALL SELECT 'AT_ADMINISTRATIONS',     COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_ADMINISTRATIONS
 UNION ALL SELECT 'AT_ABX_ADMINISTRATIONS', COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_ABX_ADMINISTRATIONS
 UNION ALL SELECT 'AT_TEMPERATURE',         COUNT(*), COUNT(DISTINCT SUBJECT), IFF(COUNT(*) = 0, 'EMPTY', 'OK') FROM AT_TEMPERATURE

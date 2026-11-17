@@ -24,13 +24,15 @@ SELECT
     -- Study window. Surgery anchor must fall in [study_start, study_end] inclusive
     -- (implemented as anchor < study_end + 1 day).
     '2015-01-01'::DATE AS study_start,
-    '2025-08-31'::DATE AS study_end,         -- TODO confirm Aug vs Sep 2025 (analysis_plan section 2)
+    '2025-09-30'::DATE AS study_end,         -- decided 2026-11-13 (legacy SQL used 2025-08-31)
 
     -- Which surgery timestamp must fall inside admission -> discharge: 'start' or 'stop'.
-    'start'            AS surgery_anchor,    -- TODO legacy SQL used stop; confirm choice
+    'start'            AS surgery_anchor,    -- decided 2026-11-13 (legacy SQL used stop)
 
     18                 AS min_age,
     90                 AS lookback_days,     -- prior-exposure window before index admission
+    30                 AS max_days_after_surgery,  -- samples are linked up to this many days after a spell's last surgery
+                                                   -- (same value as config.yaml: sample_eligibility.max_days_after_surgery)
 
     -- Short commit hash of the code that produced the tables (git rev-parse --short HEAD,
     -- run before zipping). Update it after each commit you upload.

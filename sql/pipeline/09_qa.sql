@@ -116,10 +116,16 @@ WITH checks AS (
            COUNT(*) - COUNT(DISTINCT LAB_TEST_ID::STRING || '|' || ORGANISM_BUG), '0',
            COUNT(*) = COUNT(DISTINCT LAB_TEST_ID::STRING || '|' || ORGANISM_BUG)
     FROM AT_ELECTIVE_SPELL_MICROBIOLOGY
+    UNION ALL
+    -- Samples linked after discharge (within the post-surgery window): informational.
+    SELECT 'spell_micro_rows_after_discharge', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
+    FROM AT_ELECTIVE_SPELL_MICROBIOLOGY WHERE collected_during_admission = 0
 
     -- ---- aux tables are not empty ----------------------------------------------------
     UNION ALL SELECT 'aux_demographics_empty',    'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_DEMOGRAPHICS
     UNION ALL SELECT 'aux_problems_empty',        'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_PROBLEMS
+    UNION ALL SELECT 'aux_diagnoses_empty',       'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_DIAGNOSES
+    UNION ALL SELECT 'aux_prescriptions_empty',   'aux', 'WARN', COUNT(*), '> 0 (0 = no medication name matched comorbidicare''s list; check MEDICATION_NAME_SHORT values)', COUNT(*) > 0 FROM AT_PRESCRIPTIONS
     UNION ALL SELECT 'aux_administrations_empty', 'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_ADMINISTRATIONS
     UNION ALL SELECT 'aux_abx_empty',             'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_ABX_ADMINISTRATIONS
     UNION ALL SELECT 'aux_temperature_empty',     'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_TEMPERATURE
@@ -159,7 +165,7 @@ SELECT 2, 'After excluding surgery events with an emergency procedure',
        NULL
 FROM AT_ELECTIVE_SURGERY_COHORT
 UNION ALL
-SELECT 3, 'Admissions with >=1 culture of an eligible organism during the admission',
+SELECT 3, 'Admissions with >=1 culture of an eligible organism during the admission or within the post-surgery window',
        COUNT(DISTINCT SUBJECT::STRING || '|' || SPELL_IDENTIFIER::STRING),
        COUNT(DISTINCT SUBJECT),
        NULL,
@@ -183,6 +189,7 @@ UNION ALL SELECT 'param', 'study_end',      TO_VARCHAR(study_end)      FROM AT_P
 UNION ALL SELECT 'param', 'surgery_anchor', surgery_anchor             FROM AT_PARAMS
 UNION ALL SELECT 'param', 'min_age',        TO_VARCHAR(min_age)        FROM AT_PARAMS
 UNION ALL SELECT 'param', 'lookback_days',  TO_VARCHAR(lookback_days)  FROM AT_PARAMS
+UNION ALL SELECT 'param', 'max_days_after_surgery', TO_VARCHAR(max_days_after_surgery) FROM AT_PARAMS
 UNION ALL SELECT 'build', 'built_at',       CURRENT_TIMESTAMP()::STRING
 UNION ALL SELECT 'range', 'max_surgery_stop_in_source', MAX(surgery_stop_ts)::STRING FROM STG_SURGERY
 UNION ALL SELECT 'range', 'max_admission_in_source',    MAX(admission_d)::STRING FROM STG_EPISODES
@@ -196,6 +203,8 @@ UNION ALL SELECT 'rows', 'AT_ELECTIVE_SPELL_MICROBIOLOGY',  COUNT(*)::STRING FRO
 UNION ALL SELECT 'rows', 'AT_INFECTION_SPELLS',             COUNT(*)::STRING FROM AT_INFECTION_SPELLS
 UNION ALL SELECT 'rows', 'AT_DEMOGRAPHICS',                 COUNT(*)::STRING FROM AT_DEMOGRAPHICS
 UNION ALL SELECT 'rows', 'AT_PROBLEMS',                     COUNT(*)::STRING FROM AT_PROBLEMS
+UNION ALL SELECT 'rows', 'AT_DIAGNOSES',                    COUNT(*)::STRING FROM AT_DIAGNOSES
+UNION ALL SELECT 'rows', 'AT_PRESCRIPTIONS',                COUNT(*)::STRING FROM AT_PRESCRIPTIONS
 UNION ALL SELECT 'rows', 'AT_ADMINISTRATIONS',              COUNT(*)::STRING FROM AT_ADMINISTRATIONS
 UNION ALL SELECT 'rows', 'AT_ABX_ADMINISTRATIONS',          COUNT(*)::STRING FROM AT_ABX_ADMINISTRATIONS
 UNION ALL SELECT 'rows', 'AT_TEMPERATURE',                  COUNT(*)::STRING FROM AT_TEMPERATURE

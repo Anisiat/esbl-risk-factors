@@ -1,7 +1,8 @@
 -- =============================================================================
 -- 04_cohort_micro.sql   (ports step 2 of legacy get_surgery_cohort.sql)
 -- PURPOSE   Link microbiology to elective spells (flowchart step 3: spells with
---           >=1 culture of an eligible organism during the admission).
+--           >=1 culture of an eligible organism during the admission or up to
+--           max_days_after_surgery (00_params.sql) after the spell's last surgery).
 -- READS     AT_ELECTIVE_SPELLS, AT_MICROBIOLOGY_EKP
 -- WRITES    AT_ELECTIVE_SPELL_MICROBIOLOGY
 --             grain: one row per (spell, lab_test_id, organism_bug).
@@ -21,15 +22,43 @@
 USE DATABASE ICHT_SANDBOX_PROD;
 USE SCHEMA SMTPATH_25046;
 
+-- A sample is linked to a spell if it was collected from admission until the LATER of
+-- discharge and (last surgery in the spell + max_days_after_surgery). So samples taken
+-- after discharge (community, A&E, outpatient or a readmission) are included when they
+-- fall within the post-surgery window. This is a deliberately wide net: Python applies
+-- the exact per-sample rules (postoperative, >=48 h after admission, <= 30 days after the
+-- most recent preceding surgery). The microbiology table has no location column, so
+-- post-discharge samples cannot be split by setting; collected_during_admission marks
+-- the in-hospital ones.
+-- If a sample falls in the window of two spells, it is kept once, on the spell that
+-- contains it, otherwise on the most recent admission.
 CREATE OR REPLACE TABLE AT_ELECTIVE_SPELL_MICROBIOLOGY AS
+WITH last_surgery AS (
+    SELECT SUBJECT, SPELL_IDENTIFIER, MAX(surgery_anchor_ts) AS last_surgery_anchor_ts
+    FROM AT_ELECTIVE_SURGERY_COHORT
+    GROUP BY SUBJECT, SPELL_IDENTIFIER
+)
 SELECT
     m.*,
-    s.* EXCLUDE (SUBJECT)
+    s.* EXCLUDE (SUBJECT),
+    l.last_surgery_anchor_ts,
+    IFF(m.collect_ts < DATEADD(day, 1, s.discharge_d), 1, 0) AS collected_during_admission
 FROM AT_ELECTIVE_SPELLS s
+INNER JOIN last_surgery l
+    ON  s.SUBJECT = l.SUBJECT
+    AND s.SPELL_IDENTIFIER = l.SPELL_IDENTIFIER
+CROSS JOIN AT_PARAMS p
 INNER JOIN AT_MICROBIOLOGY_EKP m
     ON  s.SUBJECT = m.SUBJECT
     AND m.collect_ts >= s.admission_d
-    AND m.collect_ts <  DATEADD(day, 1, s.discharge_d);
+    AND m.collect_ts <  GREATEST(
+            DATEADD(day, 1, s.discharge_d)::TIMESTAMP_NTZ,     -- cast so both arguments are timestamps
+            DATEADD(day, p.max_days_after_surgery, l.last_surgery_anchor_ts)::TIMESTAMP_NTZ
+        )
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY m.LAB_TEST_ID, m.ORGANISM_BUG
+    ORDER BY IFF(m.collect_ts < DATEADD(day, 1, s.discharge_d), 1, 0) DESC, s.admission_d DESC
+) = 1;
 
 
 CREATE OR REPLACE TABLE AT_INFECTION_SPELLS AS

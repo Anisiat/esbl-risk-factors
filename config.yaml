@@ -31,40 +31,71 @@ paths:
   interim_dir: data/interim      # checkpoints written by each step
   export_dir: outputs/export     # aggregate, suppressed outputs only
 
+# One entry per CSV exported by sql/pipeline/10_exports.sql (grain in docs/sql_tables.md).
 raw_csv:
-  surgery_microbiology: surgery_patients_microbiology.csv
-  all_microbiology: all_microbiology_ekp.csv
+  qa_flowchart_sql: qa_flowchart_sql.csv
+  qa_build_log: qa_build_log.csv
+  surgery_cohort: surgery_cohort.csv
+  spells: spells.csv
+  spell_microbiology: spell_microbiology.csv
+  microbiology_ekp: microbiology_ekp.csv
   demographics: demographics.csv
   problems: problems.csv
+  diagnoses: diagnoses.csv
   prescriptions: prescriptions.csv
   abx_administrations: abx_administrations.csv
-  crp: crp.csv
   temperature: temperature.csv
-  emergency_exposure: prior_emergency_exposure.csv
+  crp: crp.csv
   inpatient_exposure: prior_inpatient_exposure.csv
+  emergency_exposure: prior_emergency_exposure.csv
   outpatient_exposure: prior_outpatient_exposure.csv
 
+# Hand-maintained tables that already exist in the SDE (not exported from SQL).
 lookup_csv:
-  ethnicity: ethnicity_lookup.csv
-  tfc_mapping: treatment_function_mapping.csv
-  msc_mapping: main_specialty_mapping.csv
   third_gen_ceph_resistant: 3GCR.csv
   third_gen_ceph_susceptible: 3GCS.csv
 
+# treatment_function_code_des (stripped, lower-cased) -> specialty group, as in the
+# manuscript's configs/tfc.yaml. Values not listed here are left missing and the
+# step logs them with counts, so a spelling difference shows up on the first run.
+tfc_groups:
+  "hepatobiliary & pancreatic surgery": abdominal_gi
+  "colorectal surgery": abdominal_gi
+  "upper gastrointestinal surgery": abdominal_gi
+  "general surgery": general_surgery
+  "urology": uro_nephro
+  "nephrology": uro_nephro
+  "gynaecology": obs_gynae
+  "gynaecological oncology": gynaecological_oncology
+  "obstetrics": obs_gynae
+  "cardiac surgery": cardiothoracic
+  "thoracic surgery": cardiothoracic
+  "cardiothoracic surgery": cardiothoracic
+  "cardiology": cardiothoracic
+  "trauma & orthopaedics": ortho_plastics
+  "plastic surgery": ortho_plastics
+  "neurosurgery": neuro_ent
+  "ent": neuro_ent
+  "vascular surgery": vascular
+
 # --- Column names -------------------------------------------------------
-# Raw column names used by the cohort stage (taken from the baseline code;
-# to be checked against docs/data_dictionary.xlsx).
+# Column names as they appear after esbl_rf.io lower-cases the Snowflake headers.
+# Typed timestamp columns (*_ts) come from sql/pipeline/01-04; raw names from
+# docs/data_dictionary.xlsx.
 columns:
   subject: subject
-  admission: admission_date
-  collect: latest_collect_dt
-  surgery_start: surgery_start_dt
-  surgery_stop: surgery_stop_dt
+  spell: spell_identifier
+  admission: admission_ts
+  discharge: discharge_ts
+  collect: collect_ts            # sample collection time (spell_microbiology.csv)
+  surgery_start: surgery_start_ts
+  surgery_stop: surgery_stop_ts
+  surgery_anchor: surgery_anchor_ts   # surgery start (00_params.sql: surgery_anchor)
   organism: organism_bug
   sample_key: [subject, lab_test_id, organism_bug]
   outcome: esbl_status           # grouping column for Table 1 and outcome of all models
-  demographics: [subject, ethnicity_desc, gender, death_date]   # kept on load
-  problems: [subject, problem_desc, problem_dt]                  # kept on load
+  demographics: [subject, death_date, ethnicity_desc, gender_desc]          # kept on load
+  problems: [subject, problem_code, problem_desc, problem_dt_tm]            # kept on load
 
 # --- Table 1 ------------------------------------------------------------
 table1:

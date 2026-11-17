@@ -47,7 +47,14 @@ def _read_csv(path: Path, step: str, date_cols: Iterable[str] = (), usecols: lis
     """Read one CSV, check it exists and has the expected columns, and parse dates."""
     if not path.is_file():
         raise FileNotFoundError(f"{step}: file not found: {path}")
-    df = pd.read_csv(path, usecols=usecols, low_memory=False)
+    df = pd.read_csv(path, low_memory=False)
+    # Snowflake exports upper-case headers; the pipeline uses lower-case names.
+    df.columns = df.columns.astype(str).str.strip().str.lower()
+    if usecols is not None:
+        absent = [c for c in usecols if c not in df.columns]
+        if absent:
+            raise ValueError(f"{step}: {path.name} is missing column(s) {absent}; has {list(df.columns)}")
+        df = df[list(usecols)]
     missing = [c for c in date_cols if c not in df.columns]
     if missing:
         raise ValueError(f"{step}: {path.name} is missing date column(s) {missing}; has {list(df.columns)}")

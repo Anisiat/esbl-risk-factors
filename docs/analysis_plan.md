@@ -116,11 +116,33 @@ Isolate is ESBL-positive if any of:
 
 - cefpodoxime resistant;
 - positive ESBL confirmatory test;
-- resistant to ≥1 third-generation cephalosporin.
+- resistant to ≥1 third-generation cephalosporin;
+- the laboratory reports the statement "This is an Extended Spectrum
+  Beta-Lactamase Producer (ESBL)" for that organism (`esbl_statement` from
+  `03_microbiology.sql`). CHANGE, decided 2026-11-17: the manuscript code did
+  not use this statement. `esbl_statement_lab` (statement anywhere in the lab
+  test, any organism) is not used for labelling, only for QA.
 
-TODO: list the exact antibiotic name strings for third-generation
-cephalosporins (e.g. cefotaxime, ceftriaxone, ceftazidime) and for the ESBL
-confirmatory test, as they appear in the data.
+Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
+`drug : result` strings. Two hand-maintained lookup tables in the SDE
+(`lookup_csv: third_gen_ceph_resistant` = `3GCR.csv`, `third_gen_ceph_susceptible`
+= `3GCS.csv`) list the strings counted as resistant and susceptible. Contents after the 2026-11-17 correction (see section 10, item 10):
+
+- Resistant (3GCR, 11 strings): `cefixime : >2`, `cefixime : resistant`,
+  `cefotaxime : resistant`, `cefpodoxime : resistant`, `ceftriaxone : resistant`,
+  `ceftriaxone : >4`, `ceftriaxone : 4`, `ceftazidime : resistant`,
+  `ceftazidime : >16`, `ceftazidime : 16`, `ceftazidime : 8`.
+- Susceptible (3GCS): `cefotaxime : sensitive`, `ceftriaxone : susceptible`,
+  `ceftriaxone : sensitive`, `ceftriaxone : susceptible with optimised dosing, refer
+  to antimicrobial policy`, `ceftriaxone : <0.016`, `ceftriaxone : 0.016`,
+  `ceftriaxone : 0.023`, `ceftriaxone : 0.032`, `ceftriaxone : 0.064`,
+  `ceftriaxone : 0.094`, `ceftriaxone : 0.125`, `ceftriaxone : <=0.5`,
+  `ceftazidime : sensitive`, `ceftazidime : susceptible`, `ceftazidime : 1`,
+  `ceftazidime : <=0.5`, `ceftazidime : susceptible with optimised dosing, refer
+  to antimicrobial policy`, plus the six strings moved from 3GCR: `ceftriaxone : 1`,
+  `0.19`, `0.25`, `2`, `ceftazidime : 2`, `4` (23 strings).
+
+TODO: list the exact strings for the ESBL confirmatory test.
 
 - Episode ESBL = 1 if any isolate in the episode is ESBL-positive.
 - Non-ESBL = no ESBL marker **and** susceptible to the relevant
@@ -236,3 +258,19 @@ VIF, and the variables dropped or collapsed.
    (decided 2026-11-13; skewed counts/durations). `n_sites` and `n_samples`
    may be recategorised (1 vs ≥2) after the first real run if the median
    [IQR] is uninformative.
+7. Eligible samples: ≥48 h after admission and ≤30 days after the most recent
+   preceding surgery, including samples collected after discharge (the
+   manuscript: up to 30 days after discharge) (decided 2026-11-12/16).
+8. Eligibility filters are applied before infection episodes are assigned
+   (the manuscript code assigned episodes first and dropped pre-operative
+   samples afterwards) (decided 2026-11-17).
+9. The laboratory's ESBL-producer statement counts as positive evidence in the
+   ESBL labelling (decided 2026-11-17; see section 6).
+10. Third-generation cephalosporin lookups corrected (decided 2026-11-17, edited
+    in the SDE): `ceftriaxone : 1`, `0.19`, `0.25`, `2` and `ceftazidime : 2`,
+    `4` moved from the resistant list (3GCR) to the susceptible list (3GCS).
+    They are susceptible or "susceptible, increased exposure" under EUCAST, and
+    the susceptible list already counts "susceptible with optimised dosing" as
+    susceptible. The resistant list now has 11 strings. This may reclassify
+    some manuscript samples from ESBL-positive to non-ESBL.
+11. ESBL labelling matches the lookups as "drug : result" pairs (the baseline kept only the result, so a value listed resistant for one drug, e.g. ceftriaxone `1`, also made the same value resistant for ceftazidime) (decided 2026-11-17, pending your confirmation).

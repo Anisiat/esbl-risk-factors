@@ -21,6 +21,19 @@ sample_eligibility:
 episodes:
   gap_days: 14                   # new episode if gap since previous positive culture > gap_days
 
+# ESBL labelling (analysis_plan section 6). Names are the pivoted susceptibility
+# columns of microbiology_ekp.csv after esbl_rf.io lower-cases the headers.
+outcome:
+  third_gen_columns: [cefotaxime, ceftazidime, ceftriaxone]
+  cefpodoxime_column: cefpodoxime
+  marker_column: "esbl markers (ss = present)"
+  marker_positive: [sensitive, susceptible, "susceptible with optimised dosing, refer to antimicrobial policy"]
+  marker_negative: [resistant]
+  esbl_statement_column: esbl_statement   # 1 = lab reports the ESBL-producer statement
+  # Non-ESBL if both drugs of a pair are susceptible (as in the baseline); cefpodoxime
+  # susceptible or the marker negative also gives non-ESBL.
+  susceptible_pairs: [[cefotaxime, ceftazidime], [ceftriaxone, ceftazidime]]
+
 suppression_threshold: 10        # counts below this are shown as <10
 
 # --- Folders and files --------------------------------------------------

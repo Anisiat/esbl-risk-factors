@@ -40,7 +40,7 @@ suppression_threshold: 10        # counts below this are shown as <10
 # Each folder is defined once; files below are names inside that folder.
 paths:
   raw_dir: data/raw              # CSVs exported from the SDE Snowflake worksheets
-  lookup_dir: data/lookups       # small mapping tables
+  lookup_dir: lookups            # tracked: outcome definitions, no patient data
   interim_dir: data/interim      # checkpoints written by each step
   export_dir: outputs/export     # aggregate, suppressed outputs only
 

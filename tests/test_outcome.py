@@ -120,3 +120,12 @@ def test_missing_ast_column_raises(cfg, rules):
     df = pd.DataFrame({"cefotaxime": ["resistant"], "esbl_statement": [0]})
     with pytest.raises(ValueError, match="ceftriaxone"):
         label_esbl_status(df, *rules, cfg)
+
+
+def test_committed_lookups_are_valid(cfg):
+    """The tracked 3GCR/3GCS files parse and do not overlap."""
+    from esbl_rf.io import read_lookup
+    r = read_lookup(cfg, "third_gen_ceph_resistant")
+    s = read_lookup(cfg, "third_gen_ceph_susceptible")
+    r_rules, s_rules = build_ast_rules(r, s)
+    assert len(r_rules) == len(r) and len(s_rules) == len(s)  # no duplicates

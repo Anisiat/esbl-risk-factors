@@ -140,7 +140,10 @@ Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
   `ceftazidime : sensitive`, `ceftazidime : susceptible`, `ceftazidime : 1`,
   `ceftazidime : <=0.5`, `ceftazidime : susceptible with optimised dosing, refer
   to antimicrobial policy`, plus the six strings moved from 3GCR: `ceftriaxone : 1`,
-  `0.19`, `0.25`, `2`, `ceftazidime : 2`, `4` (23 strings).
+  `0.19`, `0.25`, `2`, `ceftazidime : 2`, `4` (23 strings), then on 2026-11-17 five more found by the gap check: `ceftriaxone : 0.38`, `cefixime : sensitive` and `intermediate` for cefotaxime, ceftazidime and ceftriaxone (28 strings).
+  The lookups are now tracked in `lookups/3GCR.csv` and `lookups/3GCS.csv`
+  (the SDE tables are the source; strings such as `not determined` and `not done`
+  are deliberately in neither list, so they stay unknown).
 
 TODO: list the exact strings for the ESBL confirmatory test.
 
@@ -274,3 +277,12 @@ VIF, and the variables dropped or collapsed.
     susceptible. The resistant list now has 11 strings. This may reclassify
     some manuscript samples from ESBL-positive to non-ESBL.
 11. ESBL labelling matches the lookups as "drug : result" pairs (the baseline kept only the result, so a value listed resistant for one drug, e.g. ceftriaxone `1`, also made the same value resistant for ceftazidime) (decided 2026-11-17, pending your confirmation).
+12. Cefixime counts as resistant evidence alongside cefotaxime, ceftazidime,
+    ceftriaxone and cefpodoxime (the baseline never tested it) (decided 2026-11-17).
+13. "Intermediate" results for the third-generation cephalosporins count as
+    susceptible, consistent with "susceptible with optimised dosing"
+    (decided 2026-11-17).
+14. Samples without a usable susceptibility result are not dropped before
+    episodes are built; an episode is excluded only if none of its samples gives an
+    ESBL status, and the flowchart reports this at sample and episode level
+    (decided 2026-11-17).

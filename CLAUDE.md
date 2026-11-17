@@ -12,8 +12,9 @@ reproducible to a standard suitable for code release).
 - **Never change study definitions** (cohort, episode, outcome, prophylaxis
   grouping, exposure windows) without asking. If code and this file disagree,
   stop and flag it.
-- **Never guess a column name.** Check `docs/data_dictionary.xlsx`. If a column
-  is not there, ask.
+- **Never guess a column name.** Check `docs/data_dictionary.xlsx` (local
+  only: `*.xlsx` is git-ignored, so a fresh clone will not have it). If a
+  column is not there, ask.
 - **Never invent results, counts or estimates.** Real results exist only in the
   SDE. This repo only ever contains synthetic data.
 - **`legacy/` is read-only reference.** Port logic from it deliberately; never
@@ -36,7 +37,11 @@ comparator group).
   postoperatively, ≥48 h after admission, and no more than
   `config.yaml: sample_eligibility.max_days_after_surgery` (30) days after the
   most recent preceding surgery (decided 2026-11-12). The manuscript used
-  "up to 30 days after discharge"; this is a deliberate CHANGE.
+  "up to 30 days after discharge"; this is a deliberate CHANGE. Samples
+  collected after discharge are included if they fall inside that window
+  (decided 2026-11-16; SQL `04_cohort_micro.sql` links them). The microbiology
+  table has no location column, so post-discharge samples cannot be split by
+  setting; `collected_during_admission` marks in-hospital samples.
 - **Organisms:** E. coli, K. pneumoniae, K. oxytoca, P. mirabilis only.
 - **Infection episode:** same organism within 14 days = same episode; new
   episode if different organism or same organism >14 days after the previous
@@ -66,7 +71,9 @@ comparator group).
   spell.
 - Dates arrive as strings (including `'none'`); parse with
   `pd.to_datetime(..., errors="coerce")` and count what failed to parse.
-- `treatment_function_code_des` is truncated in the source — use it exactly.
+- The column name `treatment_function_code_des` is truncated in the source
+  (`_des`, not `_desc`) — use it exactly. Its values are grouped into
+  specialties by `config.yaml: tfc_groups`.
 - `icare_microbiology_anon` has no `encntr_id`; link by `subject` + time.
 
 ## SDE workflow (critical)
@@ -117,7 +124,10 @@ baseline/manuscript_v1/ # frozen copy of the SDE code behind the manuscript (rea
 Work is in two phases: phase 1 ports the manuscript pipeline from
 `baseline/manuscript_v1/` into `src/esbl_rf/` with tests; phase 2 applies the
 planned changes (comorbidicare CCI, new SQL cohort) one at a time. The new code
-reads the same raw CSVs as the baseline (no SQL re-pull needed).
+reads the CSVs exported by the new SQL pipeline (`sql/pipeline/00-10`, decided
+2026-11-13), not the baseline's old SQL outputs; the first flow-diagram counts
+come from that pipeline's `qa_flowchart_sql.csv`. The cohort may differ slightly
+from the manuscript's; that is accepted. Surgery anchor is surgery start.
 
 **Build principle: streamline the baseline, do not redesign it.** The new code
 is built from the baseline code, reusing the same functions and logic, and

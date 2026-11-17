@@ -17,6 +17,19 @@ data environment. Within the cohort, ESBL-positive and non-ESBL infection
 episodes are compared (case-case comparison). Unit of analysis = infection
 episode. Patients may contribute more than one episode.
 
+**Terminology (decided 2026-11-16).** The cohort is described as
+*postoperative, healthcare-associated* Enterobacterales infection episodes:
+clinical (non-screening) isolates of the four study organisms, collected ≥48 h
+after admission and within 30 days of surgery. Samples collected after
+discharge are included. Do not call the whole cohort "nosocomial" (hospital-
+acquired); in-hospital samples (`collected_during_admission = 1`) may be
+described as hospital-onset, and an in-hospital-only sensitivity analysis is
+possible. Limitations to state: the microbiology table has no location column,
+so post-discharge samples cannot be split by setting; an eligible isolate is
+treated as an infection episode without clinical adjudication (so not
+"surgical site infection"); the 48 h rule is measured from the surgical
+admission and is uninformative after discharge.
+
 ## 2. Cohort derivation (in flowchart order)
 
 Each step logs the number of admissions, patients, samples and episodes
@@ -26,25 +39,28 @@ remaining, and is written to `outputs/export/flowchart_counts.csv`.
 |---|---|---|
 | 1 | Adult (age_at_admission ≥ 18) elective admissions (admission_method ∈ {11, 12, 13}) with ≥1 surgery between admission and discharge, within study window | 255,888 admissions |
 | 2 | Exclude surgeries in an event where any procedure description contains "emergency" | (not reported separately) |
-| 3 | Admissions with ≥1 positive microbiology culture during the admission | 7,881 (3.1%) |
+| 3 | Admissions with ≥1 positive microbiology culture during the admission or up to 30 days after the spell's last surgery (CHANGE, decided 2026-11-16: post-discharge samples included) | 7,881 (3.1%) |
 | 4 | Restrict to eligible organisms (§4) | not reported |
-| 5 | Restrict to eligible samples: non-screening, collected after surgery, ≥48 h after admission, before discharge | 3,556 samples / 2,238 patients |
+| 5 | Restrict to eligible samples: non-screening, collected after surgery, ≥48 h after admission, ≤30 days after the most recent preceding surgery (CHANGE: no longer restricted to before discharge) | 3,556 samples / 2,238 patients |
 | 6 | Group samples into infection episodes (§5) | 2,589 episodes |
 | 7 | Assign ESBL status (§6) | 893 ESBL-positive (34.5%) |
 
-- **Study window:** `study_start = 2015-01-01`; `study_end` = TODO. The
-  manuscript says both "August 2025" and "September 2025"; the SQL currently
-  uses surgery stop ≤ 2025-08-31 00:00. Pick one; implement as
-  `< study_end + 1 day`.
-- **Window anchor:** TODO. Surgery start or surgery stop must fall within the
-  admission. The SQL currently uses stop; start is more conventional.
+- **Study window:** `study_start = 2015-01-01`; `study_end = 2025-09-30`
+  (decided 2026-11-13; the manuscript SQL used surgery stop ≤ 2025-08-31).
+  Implemented as `< study_end + 1 day`.
+- **Window anchor:** surgery **start** must fall within the admission and the
+  study window (decided 2026-11-13; the manuscript SQL used stop).
 - **CHANGE:** surgery–episode linkage is deduplicated so each surgery appears
   once per spell (`icare_episodes_anon` is episode-level). Specialty comes
   from the consultant episode containing the surgery.
-- **"Postoperative" with multiple surgeries per spell:** TODO. Is a sample
-  attributed to the most recent preceding surgery (recommended), or to the
-  first surgery in the spell? This decides which specialty, duration and
-  prophylaxis an episode inherits.
+- **"Postoperative" with multiple surgeries per spell (decided 2026-11-13):**
+  each sample is attributed to the most recent surgery before it, and must be
+  collected no more than 30 days after that surgery. An infection episode
+  inherits the surgery attributed to its first eligible ("index") sample, so
+  specialty, duration and prophylaxis come from that surgery.
+  `n_surgeries` = surgeries in the spell before the index sample;
+  `min_days_from_surgery_to_infection` = days from the attributed surgery to
+  the index sample.
 - **Screening samples:** TODO. Specify the rule (order_name / site_cleaned
   values) that defines a non-diagnostic screening sample. List the values in
   `config.yaml`.
@@ -82,8 +98,9 @@ Within patient and organism, sorted by `sample_collected_dt`:
 - Applied across all specimen types.
 - TODO: boundary. Methods say ">14 days"; the Figure S1 legend says "≥14
   days". Choose one and fix both texts.
-- TODO: can an episode span two spells? Recommended: no. Episodes are built
-  within the surgical spell, since eligibility is spell-restricted.
+- An episode does not span two spells: episodes are built within the surgical
+  (index) spell, as in the manuscript code (decided 2026-11-16). A sample
+  collected after discharge belongs to the spell of its surgery.
 
 **Episode-level attributes**
 
@@ -131,7 +148,7 @@ exposures.
 | Hospital exposure 90d | prior episodes | inpatient spell overlapping [admission − 90 d, admission); index spell excluded | binary |
 | Emergency exposure 90d | emergency | A&E attendance in [admission − 90 d, admission) | binary |
 | Prior antibiotics 90d | pharmacy admin | any systemic antibiotic in [admission − 90 d, admission) | binary |
-| Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule, any organism and site) before TODO: index admission or index sample; lookback = all available history? | binary |
+| Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
 | Specimen site | microbiology | site_cleaned → groups via `config.yaml` (TODO: supply mapping; 399 episodes were missing last run, so check why) | **Blood**, Drain, Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
 | Temperature | vital signs | TODO: value and window (e.g. maximum within ±24 h of index sample) | continuous (°C) |

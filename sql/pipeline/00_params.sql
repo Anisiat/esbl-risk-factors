@@ -36,4 +36,4 @@ SELECT
 
     -- Short commit hash of the code that produced the tables (git rev-parse --short HEAD,
     -- run before zipping). Update it after each commit you upload.
-    '7805f92'          AS git_hash;
+    '82aeef7'          AS git_hash;

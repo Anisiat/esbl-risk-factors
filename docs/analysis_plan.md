@@ -61,9 +61,12 @@ remaining, and is written to `outputs/export/flowchart_counts.csv`.
   `n_surgeries` = surgeries in the spell before the index sample;
   `min_days_from_surgery_to_infection` = days from the attributed surgery to
   the index sample.
-- **Screening samples:** TODO. Specify the rule (order_name / site_cleaned
-  values) that defines a non-diagnostic screening sample. List the values in
-  `config.yaml`.
+- **Screening samples:** a sample is a non-diagnostic screen if its lab culture
+  code is one of `crocul`, `itucul`, `rgns`, `xincul`, or its site is a rectal
+  swab / rectum / rectal. Ported from the manuscript code
+  (`split_microbiology_screens`); lists in `config.yaml:
+  sample_eligibility.screening`. TODO: confirm the code list against the lab's
+  current order codes in the SDE.
 - **Reporting:** every count above is regenerated and compared with the
   reference column; the run log reports the absolute and % change for each
   step.
@@ -147,12 +150,39 @@ Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
 
 TODO: list the exact strings for the ESBL confirmatory test.
 
-- Episode ESBL = 1 if any isolate in the episode is ESBL-positive.
-- Non-ESBL = no ESBL marker **and** susceptible to the relevant
-  third-generation cephalosporins and/or cefpodoxime.
-- TODO: episodes with no relevant susceptibility result. Exclude them
-  (implied by the Methods) or treat as non-ESBL? Count them in the flowchart
-  either way.
+**Minimum evidence for a sample's status (decided 2026-11-17).** Result
+categories follow EUCAST: S = susceptible (standard dosing), I = susceptible,
+increased exposure, R = resistant. "Intermediate" and "susceptible with
+optimised dosing" are treated as susceptible. The rules live in
+`config.yaml: outcome` and are applied in `esbl_rf.outcome.label_esbl_status`.
+
+- *ESBL-positive* needs **one** of: an R result for cefotaxime, ceftazidime,
+  ceftriaxone, cefpodoxime or cefixime; a positive ESBL marker (confirmatory
+  test); the laboratory's ESBL-producer statement. Positive evidence wins over
+  negative evidence.
+- *Non-ESBL* needs **one** of: cefpodoxime S; a negative ESBL marker;
+  cefotaxime S **and** ceftazidime S; ceftriaxone S **and** ceftazidime S.
+- *Unknown* otherwise (for example ceftriaxone S alone, `not determined`, `not
+  done`, or no result).
+
+Rationale: EUCAST's ESBL screening uses cefotaxime, ceftazidime and cefpodoxime
+together, because different ESBL families raise different cephalosporin MICs
+(CTX-M mainly cefotaxime/ceftriaxone; TEM/SHV variants mainly ceftazidime). A
+single susceptible result for one of them therefore cannot exclude an ESBL,
+whereas cefpodoxime is the most sensitive single screening agent. TODO before
+submission: check these statements and the S/I/R categories against the
+current EUCAST tables and detection-of-resistance-mechanisms guideline, and
+cite the version. Our rule is phenotypic and uses the categories reported by
+the laboratory, not a repeat of EUCAST's MIC screening breakpoints.
+
+`has_ast_info` in `03_microbiology.sql` is a looser screen used for early QA
+counts only; it is not this definition.
+
+- Episode ESBL = 1 if any sample in the episode is ESBL-positive; 0 if at
+  least one sample is non-ESBL and none is positive; unknown if no sample gives
+  a status. Samples without a status still count for the episode's span, number
+  of samples and sites. Episodes with no status are excluded at their own
+  logged step (section 10, item 14).
 
 ## 7. Variables
 
@@ -286,3 +316,4 @@ VIF, and the variables dropped or collapsed.
     episodes are built; an episode is excluded only if none of its samples gives an
     ESBL status, and the flowchart reports this at sample and episode level
     (decided 2026-11-17).
+15. Postoperative is judged on exact times: a sample counts as postoperative only if collected strictly after the surgery start. The baseline compared calendar dates, so a sample taken earlier on the day of surgery counted as postoperative (decided 2026-11-18; see `esbl_rf.surgery`).

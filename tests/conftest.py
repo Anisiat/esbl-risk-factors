@@ -33,3 +33,7 @@ def make_samples(cfg):
         return df
 
     return _make
+
+
+def ts(text: str) -> pd.Timestamp:
+    return pd.Timestamp(text)

@@ -17,6 +17,11 @@ study:
 sample_eligibility:
   min_hours_after_admission: 48
   max_days_after_surgery: 30     # CHANGE vs manuscript (was: up to 30 days after discharge)
+  # Screening (non-diagnostic) samples, as in the manuscript's split_microbiology_screens:
+  # a lab culture code in culture_codes, or a rectal site. Compared lower-cased.
+  screening:
+    culture_codes: [crocul, itucul, rgns, xincul]
+    rectal_sites: [rectal swab, rectum, rectal]
 
 episodes:
   gap_days: 14                   # new episode if gap since previous positive culture > gap_days
@@ -33,7 +38,7 @@ outcome:
   marker_negative: [resistant]
   esbl_statement_column: esbl_statement        # sample flag in microbiology_ekp.csv: lab reports the ESBL-producer statement
 
-suppression_threshold: 10        # counts below this are shown as <10
+suppression_threshold: 5        # counts below this are shown as <10
 
 # --- Folders and files --------------------------------------------------
 # Each folder is defined once; files below are names inside that folder.
@@ -105,6 +110,12 @@ columns:
   surgery_stop: surgery_stop_ts
   surgery_anchor: surgery_anchor_ts   # surgery start (00_params.sql: surgery_anchor)
   organism: organism_bug
+  culture_code: culture_code     # lab order code (spell_microbiology.csv)
+  site: site
+  # Surgery columns copied onto each sample from its most recent preceding surgery
+  # (surgery_cohort.csv; names from sql/pipeline/02_cohort.sql).
+  surgery_columns: [surgery_event_id, surgery_anchor_ts, surgery_start_ts, surgery_stop_ts,
+                  procedure_desc, surgical_area, treatment_function_code_des]
   sample_key: [subject, lab_test_id, organism_bug]
   outcome: esbl_status           # grouping column for Table 1 and outcome of all models
   demographics: [subject, death_date, ethnicity_desc, gender_desc]          # kept on load

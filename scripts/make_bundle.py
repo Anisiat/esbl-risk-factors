@@ -39,7 +39,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Allow-list: only these tracked paths can enter the bundle (default-deny).
 BUNDLE_PREFIX = "esbl_rf"
-INCLUDE_PATHS = ("scripts", "src", "configs", "sql", "requirements.txt")
+INCLUDE_PATHS = ("scripts", "src", "config.yaml", "lookups", "sql", "requirements.txt")
+# Lookup tables (drug result strings, no patient data) are the only CSVs allowed in the bundle.
+ALLOWED_DATA_PREFIX = "lookups/"
 EXCLUDE_FILES = frozenset({"scripts/make_bundle.py"})
 FORBIDDEN_SUFFIXES = frozenset(
     {".csv", ".parquet", ".feather", ".pkl", ".pickle", ".xlsx", ".xls", ".zip", ".dta", ".sav"}
@@ -118,7 +120,7 @@ def list_bundle_files() -> list[str]:
     if not files:
         raise RuntimeError("make_bundle: no committed files found in bundled paths.")
 
-    forbidden = [p for p in files if Path(p).suffix.lower() in FORBIDDEN_SUFFIXES]
+    forbidden = [p for p in files if Path(p).suffix.lower() in FORBIDDEN_SUFFIXES and not p.startswith(ALLOWED_DATA_PREFIX)]
     if forbidden:
         raise RuntimeError(
             "make_bundle: data-like files found in bundled paths (the bundle "

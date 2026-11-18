@@ -12,3 +12,10 @@ __pycache__/
 *.xlsx
 *.zip
 *.sh
+
+# Data and run outputs never go in git (only lookups/*.csv, which hold no patient data)
+data/
+outputs/
+dist/
+*.csv
+!lookups/*.csv

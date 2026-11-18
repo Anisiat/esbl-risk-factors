@@ -23,6 +23,41 @@ sample_eligibility:
     culture_codes: [crocul, itucul, rgns, xincul]
     rectal_sites: [rectal swab, rectum, rectal]
 
+# Specimen site grouping (ported from the manuscript's group_specimen_site). Site and culture
+# type are lower-cased, '-' and '/' become spaces, then the first group whose pattern matches
+# wins; anything unmatched is other_label. Drop pattern: the manuscript's extra
+# (?=.*pleural)(?=.*fluid) alternative was redundant with 'fluid' and is not kept.
+sites:
+  other_label: other
+  groups:
+    - {label: blood, pattern: '\bblood\b'}
+    - {label: urine, pattern: '\burine\b|\burin\b'}
+    - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b'}
+    - {label: wound, pattern: '\bwound\b|\bpus\b'}
+    - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b'}
+    - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b'}
+    - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b'}
+  # Episode site = the first of these present among the episode's samples.
+  hierarchy: [blood, urine, tips_devices, drain, wound, sputum, tissue/biopsy, other]
+
+# Episode table (esbl_rf.episodes.aggregate_episodes): output column -> sample-table column.
+episode_table:
+  spell_columns:                 # taken once per episode; must not differ within an episode
+    subject: subject
+    spell_identifier: spell_identifier
+    admission_date: admission_ts
+    discharge_date: discharge_ts
+    age_at_admission: age_at_admission_n
+    imd_decile: index_of_multiple_deprivation_decile
+  index_sample_columns:          # taken from the episode's first sample (its attributed surgery)
+    surgery_start_dt: surgery_start_ts
+    surgery_stop_dt: surgery_stop_ts
+    procedure_desc: procedure_desc
+    surgical_area: surgical_area
+    tfc: tfc_group
+    n_surgeries: n_surgeries_before
+    min_days_from_surgery_to_infection: days_from_surgery_to_sample
+
 # Generic procedure labels (lower-case). Dropped from a spell only if the spell also has a
 # real procedure (as in the manuscript's get_surgery_features). Emergency labels such as
 # 'emergency ncepod (surg)' are removed in sql/pipeline/02_cohort.sql, so they must not appear.
@@ -119,6 +154,10 @@ columns:
   culture_code: culture_code     # lab order code (spell_microbiology.csv)
   site: site
   procedure: procedure_desc      # surgery_cohort.csv
+  culture_type: culture_type     # spell_microbiology.csv; used with site to group specimen sites
+  site_group: site_grouped       # created by esbl_rf.sites
+  tfc_desc: treatment_function_code_des   # truncated in the source (_des, not _desc)
+  tfc_group: tfc_group           # created by esbl_rf.surgery.map_specialty
   # Surgery columns copied onto each sample from its most recent preceding surgery
   # (surgery_cohort.csv; names from sql/pipeline/02_cohort.sql).
   surgery_columns: [surgery_event_id, surgery_anchor_ts, surgery_start_ts, surgery_stop_ts,

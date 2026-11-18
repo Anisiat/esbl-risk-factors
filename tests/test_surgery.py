@@ -170,3 +170,28 @@ def test_emergency_label_raises_with_count(cfg):
 def test_missing_column_raises(cfg):
     with pytest.raises(ValueError, match="procedure_desc"):
         clean_surgeries(procs(cfg, [("p1", "a", REAL)]).drop(columns="procedure_desc"), cfg)
+
+
+# --- map_specialty ---------------------------------------------------------------
+
+from esbl_rf.surgery import map_specialty
+
+
+def test_specialty_is_mapped_ignoring_case_and_spaces(cfg):
+    df = pd.DataFrame({"treatment_function_code_des": ["  Colorectal Surgery ", "UROLOGY", "ENT"]}, index=[3, 1, 2])
+    out = map_specialty(df, cfg)
+    assert out["tfc_group"].tolist() == ["abdominal_gi", "uro_nephro", "neuro_ent"]
+    assert list(out.index) == [3, 1, 2]
+
+
+def test_unmapped_and_missing_specialty_are_left_missing_and_counted(cfg, caplog):
+    df = pd.DataFrame({"treatment_function_code_des": ["dermatology", "dermatology", None, "urology"]})
+    with caplog.at_level("INFO"):
+        out = map_specialty(df, cfg)
+    assert out["tfc_group"].isna().tolist() == [True, True, True, False]
+    assert "dermatology" in caplog.text and "2" in caplog.text
+
+
+def test_specialty_column_missing_raises(cfg):
+    with pytest.raises(ValueError, match="treatment_function_code_des"):
+        map_specialty(pd.DataFrame({"x": [1]}), cfg)

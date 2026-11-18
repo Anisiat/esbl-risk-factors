@@ -312,9 +312,16 @@ VIF, and the variables dropped or collapsed.
 13. "Intermediate" results for the third-generation cephalosporins count as
     susceptible, consistent with "susceptible with optimised dosing"
     (decided 2026-11-17).
-14. Samples without a usable susceptibility result are not dropped before
-    episodes are built; an episode is excluded only if none of its samples gives an
-    ESBL status, and the flowchart reports this at sample and episode level
-    (decided 2026-11-17).
+14. CHANGE vs manuscript (decided 2026-11-17/18): samples without a usable
+    susceptibility result are not dropped before episodes are built (the
+    manuscript code dropped them first). They stay in the sample table, count
+    towards the episode's span and number of samples, and an episode is excluded
+    only if none of its samples gives an ESBL status. Reported as its own
+    flowchart step at sample and episode level.
 15. Postoperative is judged on exact times: a sample counts as postoperative only if collected strictly after the surgery start. The baseline compared calendar dates, so a sample taken earlier on the day of surgery counted as postoperative (decided 2026-11-18; see `esbl_rf.surgery`).
 16. Generic procedure labels (`other operative procedure (surg)`, `not in enumerations list`) are dropped from a spell only if the spell has a real procedure, judged per spell before surgery attribution (the manuscript judged per infection episode). Emergency labels are removed in the SQL and checked in Python (decided 2026-11-18; `esbl_rf.surgery.clean_surgeries`).
+17. CHANGE vs manuscript (decided 2026-11-18): samples from `other` specimen sites
+    are likewise kept until episodes are built (the manuscript dropped them
+    first). An episode is excluded if its resolved site is `other`, that is, all
+    its samples were `other`. `other` counts towards the episode span and
+    `n_samples` but not towards `n_sites`; it ranks last in the site hierarchy.

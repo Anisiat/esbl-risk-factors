@@ -111,3 +111,24 @@ def clean_surgeries(surgeries: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     kept = surgeries[~(is_meta & spell_has_real)].copy()
     log.info("clean_surgeries: dropped %d of %d generic-label surgery rows", len(surgeries) - len(kept), len(surgeries))
     return kept
+
+
+def map_specialty(samples: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Add ``tfc_group``: the specialty group of the attributed surgery's consultant episode.
+
+    Grain: one row per sample (unchanged). ``treatment_function_code_des`` is
+    stripped and lower-cased, then mapped with ``config.yaml: tfc_groups``. Values
+    not listed (and missing values) stay missing; the unmapped values are logged
+    with counts so a spelling difference shows up on the first real run.
+    """
+    cols = cfg["columns"]
+    if cols["tfc_desc"] not in samples.columns:
+        raise ValueError(f"map_specialty: missing column '{cols['tfc_desc']}'")
+    desc = samples[cols["tfc_desc"]].astype("string").str.strip().str.lower()
+    out = samples.copy()
+    out[cols["tfc_group"]] = desc.map(cfg["tfc_groups"])
+    unmapped = desc[out[cols["tfc_group"]].isna() & desc.notna()].value_counts()
+    n_missing = int(desc.isna().sum())
+    if len(unmapped) or n_missing:
+        log.warning("map_specialty: %d unmapped value(s) %s; %d missing", len(unmapped), unmapped.to_dict(), n_missing)
+    return out

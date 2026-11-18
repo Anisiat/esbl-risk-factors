@@ -1,6 +1,7 @@
 """Load and validate ``config.yaml``."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +11,8 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "study": ("study_start", "study_end", "min_age", "elective_admission_methods", "organisms"),
     "sample_eligibility": ("min_hours_after_admission", "max_days_after_surgery", "screening"),
     "surgery": ("meta_procedure_labels",),
+    "sites": ("other_label", "groups", "hierarchy"),
+    "episode_table": ("spell_columns", "index_sample_columns"),
     "episodes": ("gap_days",),
     "outcome": ("resistant_drugs", "susceptible_alone_drugs", "susceptible_pairs", "marker_prefix",
                 "marker_positive", "marker_negative", "esbl_statement_column"),
@@ -18,7 +21,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "lookup_csv": (),
     "tfc_groups": (),
     "columns": ("subject", "spell", "admission", "discharge", "collect", "surgery_start",
-                "surgery_stop", "surgery_anchor", "procedure", "organism", "culture_code", "site", "surgery_columns",
+                "surgery_stop", "surgery_anchor", "procedure", "culture_type", "site_group", "tfc_desc", "tfc_group", "organism", "culture_code", "site", "surgery_columns",
                 "sample_key", "outcome"),
     "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
     "cci": ("cutoff", "group_edges", "group_labels"),
@@ -66,6 +69,20 @@ def _check_values(cfg: dict) -> list[str]:
         )
     if list(cci["group_edges"]) != sorted(set(cci["group_edges"])):
         problems.append("cci.group_edges must be strictly increasing")
+
+    sites = cfg["sites"]
+    labels = [g.get("label") for g in sites["groups"]]
+    for g in sites["groups"]:
+        try:
+            re.compile(g.get("pattern", ""))
+        except re.error as err:
+            problems.append(f"sites.groups pattern for '{g.get('label')}' is not a valid regex: {err}")
+    absent = sorted((set(labels) | {sites["other_label"]}) - set(sites["hierarchy"]))
+    if absent:
+        problems.append(f"sites.hierarchy is missing site group(s) {absent}")
+    unknown = sorted(set(sites["hierarchy"]) - set(labels) - {sites["other_label"]})
+    if unknown:
+        problems.append(f"sites.hierarchy has label(s) with no group: {unknown}")
 
     table1 = cfg["table1"]
     for key in ("categorical", "nonnormal"):

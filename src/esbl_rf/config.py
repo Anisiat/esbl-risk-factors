@@ -9,6 +9,7 @@ import yaml
 _REQUIRED: dict[str, tuple[str, ...]] = {
     "study": ("study_start", "study_end", "min_age", "elective_admission_methods", "organisms"),
     "sample_eligibility": ("min_hours_after_admission", "max_days_after_surgery", "screening"),
+    "surgery": ("meta_procedure_labels",),
     "episodes": ("gap_days",),
     "outcome": ("resistant_drugs", "susceptible_alone_drugs", "susceptible_pairs", "marker_prefix",
                 "marker_positive", "marker_negative", "esbl_statement_column"),
@@ -17,7 +18,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "lookup_csv": (),
     "tfc_groups": (),
     "columns": ("subject", "spell", "admission", "discharge", "collect", "surgery_start",
-                "surgery_stop", "surgery_anchor", "organism", "culture_code", "site", "surgery_columns",
+                "surgery_stop", "surgery_anchor", "procedure", "organism", "culture_code", "site", "surgery_columns",
                 "sample_key", "outcome"),
     "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
     "cci": ("cutoff", "group_edges", "group_labels"),

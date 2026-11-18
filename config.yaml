@@ -23,6 +23,12 @@ sample_eligibility:
     culture_codes: [crocul, itucul, rgns, xincul]
     rectal_sites: [rectal swab, rectum, rectal]
 
+# Generic procedure labels (lower-case). Dropped from a spell only if the spell also has a
+# real procedure (as in the manuscript's get_surgery_features). Emergency labels such as
+# 'emergency ncepod (surg)' are removed in sql/pipeline/02_cohort.sql, so they must not appear.
+surgery:
+  meta_procedure_labels: [other operative procedure (surg), not in enumerations list]
+
 episodes:
   gap_days: 14                   # new episode if gap since previous positive culture > gap_days
 
@@ -112,6 +118,7 @@ columns:
   organism: organism_bug
   culture_code: culture_code     # lab order code (spell_microbiology.csv)
   site: site
+  procedure: procedure_desc      # surgery_cohort.csv
   # Surgery columns copied onto each sample from its most recent preceding surgery
   # (surgery_cohort.csv; names from sql/pipeline/02_cohort.sql).
   surgery_columns: [surgery_event_id, surgery_anchor_ts, surgery_start_ts, surgery_stop_ts,

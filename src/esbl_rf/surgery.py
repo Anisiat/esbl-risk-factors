@@ -75,3 +75,39 @@ def attribute_surgery(samples: pd.DataFrame, surgeries: pd.DataFrame, cfg: dict)
                                           / pd.Timedelta(days=1))
     log.info("%s: %d of %d samples have a preceding surgery", STEP, int(attributed[anchor].notna().sum()), len(out))
     return out
+
+
+def clean_surgeries(surgeries: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Drop generic procedure labels where the spell has a real procedure.
+
+    Grain: one row per surgery in a spell (rows only removed; order and index kept).
+    Ported from the manuscript's ``get_surgery_features``: labels in
+    ``surgery.meta_procedure_labels`` are dropped from a spell only if the spell
+    also has a surgery whose label is not one of them (a missing label counts as
+    real), so spells with only generic labels keep them. CHANGE: judged per spell,
+    not per infection episode, and emergency labels are not handled here because
+    ``02_cohort.sql`` already removes them.
+
+    Raises
+    ------
+    ValueError
+        If the subject, spell or procedure column is missing, or any procedure
+        label contains ``emergency`` (the SQL filter should have removed it).
+    """
+    cols = cfg["columns"]
+    subject, spell, procedure = cols["subject"], cols["spell"], cols["procedure"]
+    absent = [c for c in (subject, spell, procedure) if c not in surgeries.columns]
+    if absent:
+        raise ValueError(f"clean_surgeries: missing column(s) {absent}")
+
+    label = surgeries[procedure].astype("string").str.strip().str.lower()
+    n_emergency = int(label.str.contains("emergency", regex=False).fillna(False).sum())
+    if n_emergency:
+        raise ValueError(f"clean_surgeries: {n_emergency} surgery row(s) have an 'emergency' procedure label; "
+                         "02_cohort.sql should have excluded them")
+
+    is_meta = label.isin([m.lower() for m in cfg["surgery"]["meta_procedure_labels"]]).fillna(False).astype(bool)
+    spell_has_real = (~is_meta).groupby([surgeries[subject], surgeries[spell]]).transform("any")
+    kept = surgeries[~(is_meta & spell_has_real)].copy()
+    log.info("clean_surgeries: dropped %d of %d generic-label surgery rows", len(surgeries) - len(kept), len(surgeries))
+    return kept

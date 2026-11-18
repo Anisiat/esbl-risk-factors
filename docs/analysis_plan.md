@@ -317,3 +317,4 @@ VIF, and the variables dropped or collapsed.
     ESBL status, and the flowchart reports this at sample and episode level
     (decided 2026-11-17).
 15. Postoperative is judged on exact times: a sample counts as postoperative only if collected strictly after the surgery start. The baseline compared calendar dates, so a sample taken earlier on the day of surgery counted as postoperative (decided 2026-11-18; see `esbl_rf.surgery`).
+16. Generic procedure labels (`other operative procedure (surg)`, `not in enumerations list`) are dropped from a spell only if the spell has a real procedure, judged per spell before surgery attribution (the manuscript judged per infection episode). Emergency labels are removed in the SQL and checked in Python (decided 2026-11-18; `esbl_rf.surgery.clean_surgeries`).

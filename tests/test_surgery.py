@@ -115,3 +115,58 @@ def test_duplicate_surgery_rows_raise(cfg):
     g = pd.concat([g, g], ignore_index=True)
     with pytest.raises(ValueError, match="duplicate"):
         attribute_surgery(s, g, cfg)
+
+
+# --- clean_surgeries -------------------------------------------------------------
+
+from esbl_rf.surgery import clean_surgeries
+
+META, REAL = "other operative procedure (surg)", "total knee replacement"
+
+
+def procs(cfg, rows):
+    """Rows of (subject, spell, procedure_desc)."""
+    return pd.DataFrame(rows, columns=["subject", "spell_identifier", cfg["columns"]["procedure"]])
+
+
+def test_meta_label_dropped_when_spell_has_a_real_procedure(cfg):
+    out = clean_surgeries(procs(cfg, [("p1", "a", META), ("p1", "a", REAL)]), cfg)
+    assert out["procedure_desc"].tolist() == [REAL]
+
+
+def test_meta_label_kept_when_it_is_the_only_procedure_in_the_spell(cfg):
+    out = clean_surgeries(procs(cfg, [("p1", "a", META), ("p1", "a", "not in enumerations list")]), cfg)
+    assert len(out) == 2
+
+
+def test_spells_are_judged_separately(cfg):
+    df = procs(cfg, [("p1", "a", META), ("p1", "a", REAL), ("p1", "b", META), ("p2", "a", META)])
+    out = clean_surgeries(df, cfg)
+    assert out[["subject", "spell_identifier"]].apply(tuple, axis=1).tolist() == [("p1", "a"), ("p1", "b"), ("p2", "a")]
+
+
+def test_labels_are_matched_ignoring_case_and_spaces(cfg):
+    out = clean_surgeries(procs(cfg, [("p1", "a", "  Other Operative Procedure (SURG) "), ("p1", "a", REAL)]), cfg)
+    assert len(out) == 1
+
+
+def test_missing_procedure_counts_as_real(cfg):
+    out = clean_surgeries(procs(cfg, [("p1", "a", META), ("p1", "a", None)]), cfg)
+    assert len(out) == 1 and pd.isna(out["procedure_desc"].iloc[0])
+
+
+def test_order_and_index_are_kept(cfg):
+    df = procs(cfg, [("p1", "a", REAL), ("p1", "a", META), ("p2", "a", REAL)])
+    df.index = [8, 2, 5]
+    assert list(clean_surgeries(df, cfg).index) == [8, 5]
+
+
+def test_emergency_label_raises_with_count(cfg):
+    df = procs(cfg, [("p1", "a", "emergency ncepod (surg)"), ("p1", "a", "Emergency laparotomy")])
+    with pytest.raises(ValueError, match=r"clean_surgeries.*2.*emergency"):
+        clean_surgeries(df, cfg)
+
+
+def test_missing_column_raises(cfg):
+    with pytest.raises(ValueError, match="procedure_desc"):
+        clean_surgeries(procs(cfg, [("p1", "a", REAL)]).drop(columns="procedure_desc"), cfg)

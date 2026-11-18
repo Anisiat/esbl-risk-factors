@@ -142,7 +142,6 @@ def aggregate_episodes(samples: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
     for out_name, source in index_map.items():
         out[out_name] = first[source]
-    out["surgery_length"] = (first[cols["surgery_stop"]] - first[cols["surgery_start"]]).dt.total_seconds() / 3600
 
     out["culture_span_days"] = (out["last_culture_dt"] - out["first_culture_dt"]).dt.days
     out["length_of_stay_days"] = (out["discharge_date"] - out["admission_date"]).dt.days

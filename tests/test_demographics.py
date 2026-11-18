@@ -1,0 +1,72 @@
+"""Tests for esbl_rf.demographics."""
+import logging
+
+import pandas as pd
+import pytest
+
+from esbl_rf.demographics import attach_demographics, clean_demographics, set_sparse_ethnicity_missing
+
+
+def raw(rows):
+    return pd.DataFrame(rows, columns=["subject", "ethnicity_desc", "gender_desc", "death_date"])
+
+
+def test_groups_ethnicity_and_gender(cfg):
+    out = clean_demographics(raw([
+        ("a", "White - British", "Female", None),
+        ("b", "Indian", "Male", None),
+        ("c", "Not Stated", "Unspecified", None),
+    ]), cfg)
+    assert out.set_index("subject")["ethnicity_desc"].to_dict() == {"a": "white", "b": "asian", "c": "other_unknown"}
+    assert out.set_index("subject")["gender"].fillna("missing").to_dict() == {"a": "female", "b": "male", "c": "missing"}
+
+
+def test_unmapped_ethnicity_becomes_missing_and_is_logged(cfg, caplog):
+    with caplog.at_level(logging.WARNING):
+        out = clean_demographics(raw([("a", "Klingon", "Male", None)]), cfg)
+    assert out["ethnicity_desc"].isna().all()
+    assert "Klingon".lower() in caplog.text
+
+
+def test_deliberately_missing_gender_is_not_logged(cfg, caplog):
+    with caplog.at_level(logging.WARNING):
+        out = clean_demographics(raw([("a", "Indian", "Not Known", None)]), cfg)
+    assert out["gender"].isna().all()
+    assert "gender" not in caplog.text
+
+
+def test_duplicate_subject_raises(cfg):
+    with pytest.raises(ValueError, match="duplicate"):
+        clean_demographics(raw([("a", "Indian", "Male", None), ("a", "Indian", "Male", None)]), cfg)
+
+
+def test_missing_column_raises(cfg):
+    with pytest.raises(ValueError, match="missing column"):
+        clean_demographics(raw([("a", "Indian", "Male", None)]).drop(columns="gender_desc"), cfg)
+
+
+def episodes(subjects):
+    return pd.DataFrame({"infection_id": [f"e{i}" for i in range(len(subjects))], "subject": subjects})
+
+
+def test_attach_keeps_rows_and_adds_columns(cfg):
+    demo = clean_demographics(raw([("a", "Indian", "Male", None)]), cfg)
+    out = attach_demographics(episodes(["a", "a", "b"]), demo, cfg)
+    assert len(out) == 3
+    assert out["ethnicity_desc"].tolist()[:2] == ["asian", "asian"]
+    assert pd.isna(out.loc[2, "ethnicity_desc"])  # patient with no demographics row
+
+
+def test_attach_refuses_existing_column(cfg):
+    demo = clean_demographics(raw([("a", "Indian", "Male", None)]), cfg)
+    eps = episodes(["a"]).assign(gender="x")
+    with pytest.raises(ValueError, match="already"):
+        attach_demographics(eps, demo, cfg)
+
+
+def test_sparse_ethnicity_set_missing(cfg):
+    cfg["demographics"]["ethnicity_min_count"] = 3
+    eps = pd.DataFrame({"ethnicity_desc": ["white"] * 3 + ["mixed"] * 2 + [pd.NA]})
+    out = set_sparse_ethnicity_missing(eps, cfg)
+    assert (out["ethnicity_desc"] == "white").sum() == 3
+    assert out["ethnicity_desc"].isna().sum() == 3  # 2 mixed + 1 already missing

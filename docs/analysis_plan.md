@@ -201,9 +201,8 @@ exposures.
 | CCI | comorbidicare | 17 Charlson flags; weighted score; evidence strictly before admission (`--cutoff admission`) | CHANGE: replaces individual comorbidities in models as the continuous `cci_score` (decided 2026-11-13; linearity checked as a sensitivity analysis). `cci_group` (0, 1–2, ≥3) is for Table 1 only |
 | Individual comorbidities | comorbidicare | the 17 Charlson flags (comorbidicare names, listed in `config.yaml: table1.supplementary_conditions`) | binary; descriptive only, no p-values. Main Table 1 shows a subset (decided 2026-11-13: malignancy, metastatic solid tumour, diabetes with/without complication, chronic pulmonary disease, renal disease, congestive heart failure); the supplementary table shows all 17. Asthma, hypertension and IHD are not among the 17 flags, so they are no longer reported |
 | Hospital exposure 90d | prior episodes | inpatient spell overlapping [admission − 90 d, admission); index spell excluded | binary |
-| Emergency exposure 90d | emergency | A&E attendance in [admission − 90 d, admission) | binary |
 | Prior antibiotics 90d | pharmacy admin | any systemic antibiotic in [admission − 90 d, admission) | binary |
-| Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
+| Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, clinical or screening sample, collected before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
 | Specimen site | microbiology | site_cleaned → groups via `config.yaml` (TODO: supply mapping; 399 episodes were missing last run, so check why) | **Blood**, Drain, Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
 | Temperature | vital signs | TODO: value and window (e.g. maximum within ±24 h of index sample) | continuous (°C) |
@@ -325,3 +324,20 @@ VIF, and the variables dropped or collapsed.
     first). An episode is excluded if its resolved site is `other`, that is, all
     its samples were `other`. `other` counts towards the episode span and
     `n_samples` but not towards `n_sites`; it ranks last in the site hierarchy.
+18. Demographics (decided 2026-11-18): the three patient-specific ethnicity
+    overrides in the manuscript code are removed (patient-level data does not
+    belong in released code). Ethnicity is grouped from the `ethnicity_desc` values
+    in the data dictionary (list in `config.yaml: demographics`; the manuscript
+    mapping left some values, e.g. "British" and "Indian", unmapped). Unlisted values
+    become missing. Groups with fewer than 30 episodes are set to missing,
+    counted over analysed episodes (the manuscript counted over all patients).
+    Sex is `female` / `male`; "unspecified" and "not known" become missing.
+    `subject` must be unique in the demographics table.
+19. A&E (emergency) and outpatient exposures and colonisation are dropped; only
+    hospital (inpatient) exposure in the 90 days before admission is kept
+    (decided 2026-11-18). Prior-exposure flags are keyed on the spell, not on
+    the admission date.
+20. Prior ESBL-positive culture counts positive screening samples (e.g. rectal
+    swabs) as well as clinical samples, any time before the index admission
+    (decided 2026-11-18; the screening exclusion applies to index samples only).
+    Samples without a usable susceptibility result are unknown, not positive.

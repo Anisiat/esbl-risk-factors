@@ -27,7 +27,7 @@ export the CSVs listed in `10_exports.sql` into `data/raw/`.
 | `surgery_cohort.csv` (`AT_ELECTIVE_SURGERY_COHORT`, spells with a culture only) | surgery in a spell | Surgery start/stop, procedure, surgical area, containing episode | Attribute each sample to its most recent preceding surgery; surgery duration, specialty, number of surgeries (planned) |
 | `spells.csv` (`AT_INFECTION_SPELLS`) | spell with at least one eligible culture | Admission and discharge dates, admission method, age, IMD decile, discharge details | Age and IMD; length of stay; 48 h rule; in-hospital mortality; the spell list everything else is keyed on (planned) |
 | `spell_microbiology.csv` (`AT_ELECTIVE_SPELL_MICROBIOLOGY`) | (spell, lab test, organism) | Eligible-organism samples collected from admission until the later of discharge and 30 days after the spell's last surgery (`collected_during_admission` marks the in-hospital ones), flags for whether ESBL status can be judged (no susceptibility columns; the result strings are in `microbiology_results.csv`) | Sample eligibility filters, screening exclusion, ESBL labelling, infection episodes (planned) |
-| `microbiology_ekp.csv` (`AT_MICROBIOLOGY_EKP`) | (lab test, organism) | Same data over all time, for cohort patients | Prior ESBL-positive culture (planned) |
+| `microbiology_ekp.csv` (`AT_MICROBIOLOGY_EKP`) | (lab test, organism) | Same data over all time, for cohort patients; includes screening samples. Labelled once in Python (all samples), then the labels are joined to `spell_microbiology.csv` | ESBL labelling, prior ESBL-positive culture |
 | `microbiology_results.csv` (`AT_MICROBIOLOGY_RESULTS`) | (subject, lab test, organism, result string) | Raw susceptibility strings such as `ceftriaxone : 4` for cefotaxime, ceftazidime, ceftriaxone, cefpodoxime, cefixime and the ESBL marker; unsplit | ESBL labelling against `lookups/3GCR.csv` and `3GCS.csv` |
 | `demographics.csv` (`AT_DEMOGRAPHICS`) | patient | Death date, ethnicity and description, gender and description | Sex, ethnicity, in-hospital mortality (planned) |
 | `problems.csv` (`AT_PROBLEMS`) | problem record | Problem description, SNOMED `problem_code`, date; all history | comorbidicare evidence for the CCI (planned) |
@@ -37,8 +37,6 @@ export the CSVs listed in `10_exports.sql` into `data/raw/`.
 | `temperature.csv` (`AT_TEMPERATURE`) | observation in the spell | Temperature and time | Temperature covariate (planned) |
 | `crp.csv` (`AT_CRP`) | result in the spell | CRP value and time | CRP covariate (planned) |
 | `prior_inpatient_exposure.csv` (`AT_PRIOR_ADMISSIONS`) | (index spell, prior spell) | Earlier stays overlapping the 90 days before admission | Prior hospitalisation (inpatient only) (planned) |
-| `prior_emergency_exposure.csv` (`AT_PRIOR_EMERGENCY`) | (index spell, A&E attendance) | A&E attendances in the lookback window | Emergency exposure (planned) |
-| `prior_outpatient_exposure.csv` (`AT_PRIOR_OUTPATIENT`) | (index spell, appointment) | Outpatient appointments in the lookback window | Outpatient exposure, descriptive (planned) |
 
 ## Built but not exported
 
@@ -50,3 +48,6 @@ export the CSVs listed in `10_exports.sql` into `data/raw/`.
 
 These three could be removed from `05_aux_tables.sql` to save compute; they are left in so
 they can be exported later without re-running the pipeline.
+
+
+Not exported: `AT_PRIOR_EMERGENCY` (A&E attendances) and `AT_PRIOR_OUTPATIENT` stay in the SDE but are not used (decided 2026-11-18).

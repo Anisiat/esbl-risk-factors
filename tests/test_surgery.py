@@ -195,3 +195,36 @@ def test_unmapped_and_missing_specialty_are_left_missing_and_counted(cfg, caplog
 def test_specialty_column_missing_raises(cfg):
     with pytest.raises(ValueError, match="treatment_function_code_des"):
         map_specialty(pd.DataFrame({"x": [1]}), cfg)
+
+
+# --- add_surgery_length ------------------------------------------------------------
+from esbl_rf.surgery import add_surgery_length
+
+
+def timed(rows):
+    df = pd.DataFrame(rows, columns=["surgery_start_ts", "surgery_stop_ts"])
+    return df.apply(pd.to_datetime)
+
+
+def test_surgery_length_in_hours(cfg):
+    out = add_surgery_length(timed([("2020-01-01 08:00", "2020-01-01 10:30")]), cfg)
+    assert out["surgery_length_hours"].tolist() == [2.5]
+
+
+def test_surgery_length_missing_time_gives_missing(cfg):
+    out = add_surgery_length(timed([("2020-01-01 08:00", None), (None, "2020-01-01 10:30")]), cfg)
+    assert out["surgery_length_hours"].isna().all()
+
+
+def test_surgery_length_negative_set_missing_and_warned(cfg, caplog):
+    with caplog.at_level("WARNING"):
+        out = add_surgery_length(timed([("2020-01-01 10:00", "2020-01-01 08:00"), ("2020-01-01 08:00", "2020-01-01 09:00")]), cfg)
+    assert out["surgery_length_hours"].isna().tolist() == [True, False]
+    assert "1 surgery row" in caplog.text
+
+
+def test_surgery_length_keeps_rows_and_missing_column_raises(cfg):
+    df = timed([("2020-01-01 08:00", "2020-01-01 09:00")])
+    assert len(add_surgery_length(df, cfg)) == 1
+    with pytest.raises(ValueError, match="missing column"):
+        add_surgery_length(df.drop(columns="surgery_stop_ts"), cfg)

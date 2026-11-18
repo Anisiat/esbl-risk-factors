@@ -56,6 +56,7 @@ episode_table:
     surgical_area: surgical_area
     tfc: tfc_group
     n_surgeries: n_surgeries_before
+    surgery_length: surgery_length_hours   # hours, from esbl_rf.surgery.add_surgery_length
     min_days_from_surgery_to_infection: days_from_surgery_to_sample
 
 # Generic procedure labels (lower-case). Dropped from a spell only if the spell also has a
@@ -78,6 +79,58 @@ outcome:
   marker_positive: [sensitive, susceptible, "susceptible with optimised dosing, refer to antimicrobial policy"]
   marker_negative: [resistant]
   esbl_statement_column: esbl_statement        # sample flag in microbiology_ekp.csv: lab reports the ESBL-producer statement
+
+# Demographics (esbl_rf.demographics). Keys are lower-cased ethnicity_desc values from
+# demographics.csv (values listed in docs/data_dictionary.xlsx). Values not listed become
+# missing and are logged with counts. Groups with fewer than ethnicity_min_count episodes are
+# then set to missing (CHANGE vs manuscript: counted over analysed episodes, not all patients).
+demographics:
+  ethnicity_groups:
+    "white - british": white
+    "white - irish": white
+    "white - any other white background": white
+    "british": white
+    "other white": white
+    "asian or asian british - indian": asian
+    "asian or asian british - pakistani": asian
+    "asian or asian british - bangladeshi": asian
+    "asian - any other asian background": asian
+    "other - chinese": asian
+    "indian": asian
+    "chinese": asian
+    "other asian": asian
+    "black or black british - african": black
+    "black or black british - caribbean": black
+    "black - any other black background": black
+    "african (except somali)": black
+    "other black": black
+    "mixed - white and black caribbean": mixed
+    "mixed - white and black african": mixed
+    "mixed - white and asian": mixed
+    "mixed - any other mixed background": mixed
+    "white and asian": mixed
+    "other mixed": mixed
+    "other - any other ethnic group": other
+    "any other ethnic group": other
+    "other - not stated": other_unknown
+    "other - not known": other_unknown
+    "not stated": other_unknown
+    "not known": other_unknown
+  ethnicity_min_count: 30
+  gender_groups:                 # lower-cased gender_desc -> level; null = deliberately missing
+    female: female
+    male: male
+    unspecified: null
+    not known: null
+
+# Exposures before admission (esbl_rf.exposures).
+exposures:
+  lookback_days: 90              # must equal AT_PARAMS.lookback_days in sql/pipeline/00_params.sql
+  prior_esbl_lookback_days: null # null = any time before admission (decided 2026-11-13)
+  inpatient_columns:             # prior_inpatient_exposure.csv
+    index_admission: index_admission_d
+    prior_admission: prior_admission_d
+    prior_discharge: prior_discharge_d
 
 suppression_threshold: 5        # counts below this are shown as <10
 
@@ -106,8 +159,6 @@ raw_csv:
   temperature: temperature.csv
   crp: crp.csv
   inpatient_exposure: prior_inpatient_exposure.csv
-  emergency_exposure: prior_emergency_exposure.csv
-  outpatient_exposure: prior_outpatient_exposure.csv
 
 # Hand-maintained tables that already exist in the SDE (not exported from SQL).
 lookup_csv:

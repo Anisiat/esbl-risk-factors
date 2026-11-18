@@ -20,7 +20,7 @@ DEFAULTS = {
     "age_at_admission_n": 60, "index_of_multiple_deprivation_decile": 5,
     "surgery_start_ts": pd.Timestamp("2020-01-02 08:00"), "surgery_stop_ts": pd.Timestamp("2020-01-02 10:30"),
     "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics",
-    "n_surgeries_before": 1, "days_from_surgery_to_sample": 3.0,
+    "n_surgeries_before": 1, "days_from_surgery_to_sample": 3.0, "surgery_length_hours": 2.5,
 }
 
 
@@ -153,3 +153,8 @@ def test_other_site_episodes_are_excluded(cfg):
     eps = aggregate_episodes(make({"collect_ts": "2020-01-05", "site_grouped": "other"},
                                   {"collect_ts": "2020-01-06", "infection_id": "e2", "site_grouped": "blood"}), cfg)
     assert exclude_other_site_episodes(eps, cfg)["infection_id"].tolist() == ["e2"]
+
+
+def test_surgery_length_comes_from_first_sample(cfg):
+    out = agg(cfg, {"collect_ts": "2020-01-05", "surgery_length_hours": 2.5}, {"collect_ts": "2020-01-09", "surgery_length_hours": 9.0})
+    assert out.loc["e1", "surgery_length"] == 2.5

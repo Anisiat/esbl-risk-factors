@@ -14,6 +14,8 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "sites": ("other_label", "groups", "hierarchy"),
     "episode_table": ("spell_columns", "index_sample_columns"),
     "episodes": ("gap_days",),
+    "demographics": ("ethnicity_groups", "ethnicity_min_count", "gender_groups"),
+    "exposures": ("lookback_days", "prior_esbl_lookback_days", "inpatient_columns"),
     "outcome": ("resistant_drugs", "susceptible_alone_drugs", "susceptible_pairs", "marker_prefix",
                 "marker_positive", "marker_negative", "esbl_statement_column"),
     "paths": ("raw_dir", "lookup_dir", "interim_dir", "export_dir"),
@@ -56,6 +58,10 @@ def _check_values(cfg: dict) -> list[str]:
             problems.append(f"sample_eligibility.{key} is negative")
     if cfg["episodes"]["gap_days"] <= 0:
         problems.append("episodes.gap_days must be positive")
+    if cfg["exposures"]["lookback_days"] <= 0:
+        problems.append("exposures.lookback_days must be positive")
+    if cfg["demographics"]["ethnicity_min_count"] < 0:
+        problems.append("demographics.ethnicity_min_count is negative")
     if cfg["suppression_threshold"] < 1:
         problems.append("suppression_threshold must be at least 1")
 

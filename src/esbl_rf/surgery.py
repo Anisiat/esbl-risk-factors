@@ -113,6 +113,29 @@ def clean_surgeries(surgeries: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return kept
 
 
+def add_surgery_length(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Add ``surgery_length_hours``: surgery stop minus surgery start, in hours.
+
+    Grain: unchanged (works on the surgery table or on samples that carry an
+    attributed surgery). Missing start or stop gives a missing length. A stop
+    before the start is a recording error: it is set to missing and counted in a warning.
+    Ported from the manuscript's ``get_surgery_features`` (done there per surgery row).
+    """
+    cols = cfg["columns"]
+    start, stop = cols["surgery_start"], cols["surgery_stop"]
+    absent = [c for c in (start, stop) if c not in df.columns]
+    if absent:
+        raise ValueError(f"add_surgery_length: missing column(s) {absent}")
+    hours = (df[stop] - df[start]).dt.total_seconds() / 3600
+    n_negative = int((hours < 0).sum())
+    if n_negative:
+        log.warning("add_surgery_length: %d surgery row(s) end before they start; length set to missing", n_negative)
+        hours = hours.mask(hours < 0)
+    out = df.copy()
+    out["surgery_length_hours"] = hours
+    return out
+
+
 def map_specialty(samples: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Add ``tfc_group``: the specialty group of the attributed surgery's consultant episode.
 

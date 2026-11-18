@@ -69,8 +69,4 @@ SELECT * FROM AT_CRP;
 -- OUTPUT CSV: prior_inpatient_exposure.csv    grain: (index spell, prior spell)
 SELECT * FROM AT_PRIOR_ADMISSIONS;
 
--- OUTPUT CSV: prior_emergency_exposure.csv    grain: (index spell, A&E attendance)
-SELECT * FROM AT_PRIOR_EMERGENCY;
-
--- OUTPUT CSV: prior_outpatient_exposure.csv   grain: (index spell, appointment)
-SELECT * FROM AT_PRIOR_OUTPATIENT;
+-- Not exported (decided 2026-11-18): AT_PRIOR_EMERGENCY and AT_PRIOR_OUTPATIENT are not used in the analysis.

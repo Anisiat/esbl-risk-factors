@@ -42,6 +42,9 @@ SELECT * FROM AT_ELECTIVE_SPELL_MICROBIOLOGY;
 -- OUTPUT CSV: microbiology_ekp.csv    grain: (lab_test_id, organism_bug), all time, for prior-ESBL history
 SELECT * FROM AT_MICROBIOLOGY_EKP;
 
+-- OUTPUT CSV: microbiology_results.csv  grain: (subject, lab_test_id, organism_bug, sensitivity string)
+SELECT * FROM AT_MICROBIOLOGY_RESULTS;
+
 -- OUTPUT CSV: demographics.csv        grain: patient
 SELECT * FROM AT_DEMOGRAPHICS;
 

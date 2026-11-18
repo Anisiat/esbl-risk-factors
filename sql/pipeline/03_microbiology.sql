@@ -1,16 +1,23 @@
 -- =============================================================================
 -- 03_microbiology.sql   (ports legacy get_microbiology_ekp.sql)
 -- PURPOSE   Microbiology for the four eligible organisms, for cohort patients,
---           with antimicrobial susceptibility (AST) pivoted wide, plus FLAGS
---           saying whether the sample has enough information to judge ESBL
---           status. Nothing is dropped for lacking AST: flowchart steps 3-7
---           need those samples counted, and Python removes them at a logged step.
+--           (one row per sample), plus FLAGS saying whether the sample has
+--           enough information to judge ESBL status, and a second table with the
+--           raw susceptibility result strings (one row per result, NOT split or
+--           pivoted). Nothing is dropped for lacking AST: Python labels ESBL status
+--           from the result strings and removes episodes without a status at a
+--           logged step.
 -- READS     ICARE_MICROBIOLOGY_ANON, AT_ELECTIVE_SURGERY_COHORT (subjects only),
---           sandbox lookups LOOKUP_CEPHALOSPORIN_R_AT, LOOKUP_CEPHALOSPORIN_S_AT,
---           AT_ABX_EXCLUDE
+--           sandbox lookups LOOKUP_CEPHALOSPORIN_R_AT, LOOKUP_CEPHALOSPORIN_S_AT
+--           (used for the has_ast_info flag only; Python reads lookups/*.csv)
 -- WRITES    AT_MICROBIOLOGY_EKP
 --           grain: one row per (lab_test_id, organism_bug). All time, not only
 --           the surgical spell (needed for prior-ESBL history).
+--           AT_MICROBIOLOGY_RESULTS
+--             grain: one row per (subject, lab_test_id, organism_bug, sensitivity
+--             string) for cefotaxime, ceftazidime, ceftriaxone, cefpodoxime,
+--             cefixime and the ESBL marker. The string is kept exactly as in the
+--             source (lower-cased), e.g. 'ceftriaxone : 4'.
 -- FLAGS     has_ast_info        1 if the organism has a cephalosporin R/S result,
 --                               an ESBL marker result (not "not determined") or a
 --                               cefpodoxime result (legacy conditions 1-4)
@@ -25,8 +32,8 @@
 --   * Base rows come from ALL result rows of a lab test, so a sample with no AST
 --     still appears (legacy dropped it).
 --   * AST is no longer a filter but a flag; the ESBL statement is a new flag.
---   * Only 'antibiotic : result' rows are pivoted (free-text rows such as
---     "NO Carbapenem resistant organisms isolated" no longer become columns).
+--   * No split or pivot: the legacy wide per-antibiotic columns are gone, the
+--     result strings are exported as they are in AT_MICROBIOLOGY_RESULTS.
 --   * The culture-type join is de-duplicated and also joins on organism_bug,
 --     so mixed-organism samples keep one row per organism.
 -- =============================================================================
@@ -110,46 +117,15 @@ esbl_lab AS (
     FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
     INNER JOIN cohort_subjects c ON m.SUBJECT = c.SUBJECT
     WHERE LOWER(m.SENSITIVITY) LIKE '%extended spectrum beta-lactamase producer%'
-),
-
--- Split "Co-amoxiclav : R" into antibiotic_name = "Co-amoxiclav", result = "R".
-split_ast AS (
-    SELECT
-        LAB_TEST_ID,
-        ORGANISM_BUG,
-        TRIM(SPLIT_PART(SENSITIVITY, ' : ', 1)) AS antibiotic_name,
-        TRIM(SPLIT_PART(SENSITIVITY, ' : ', 2)) AS sensitivity_result
-    FROM ekp_rows
-    WHERE LOWER(ORDER_NAME) = 'susceptibility'
-      AND SENSITIVITY LIKE '% : %'
-),
-
-split_ast_clean AS (
-    SELECT *
-    FROM split_ast
-    WHERE antibiotic_name NOT IN (SELECT ANTIBIOTIC FROM AT_ABX_EXCLUDE WHERE ANTIBIOTIC IS NOT NULL)
-),
-
--- Rows: lab test + organism. Columns: one per antibiotic. Values: S / I / R etc.
--- MAX() because there should be one result per antibiotic per test.
-pivot_ast AS (
-    SELECT *
-    FROM split_ast_clean
-    PIVOT (
-        MAX(sensitivity_result)
-        FOR antibiotic_name IN (SELECT DISTINCT antibiotic_name FROM split_ast_clean)
-    )
 )
 
--- Final table: base rows, plus pivoted AST columns, plus flags for whether the row has AST info and whether it has an ESBL statement.
+-- Final table: base rows plus flags for whether the sample has AST info and whether it has an ESBL statement.
 SELECT
     b.*,
     COALESCE(f.has_ast_info, 0)                   AS has_ast_info,
     COALESCE(f.esbl_statement, 0)                 AS esbl_statement,
-    IFF(l.LAB_TEST_ID IS NOT NULL, 1, 0)          AS esbl_statement_lab,
-    p.* EXCLUDE (LAB_TEST_ID, ORGANISM_BUG)
+    IFF(l.LAB_TEST_ID IS NOT NULL, 1, 0)          AS esbl_statement_lab
 FROM base b
-LEFT JOIN pivot_ast p ON b.LAB_TEST_ID = p.LAB_TEST_ID AND b.ORGANISM_BUG = p.ORGANISM_BUG
 LEFT JOIN ast_flags f ON b.LAB_TEST_ID = f.LAB_TEST_ID AND b.ORGANISM_BUG = f.ORGANISM_BUG
 LEFT JOIN esbl_lab  l ON b.LAB_TEST_ID = l.LAB_TEST_ID
 ORDER BY b.LAB_TEST_ID;
@@ -164,3 +140,33 @@ SELECT
     COUNT_IF(collect_ts IS NULL)               AS n_collect_ts_null,
     IFF(n_rows > 0 AND n_rows = n_distinct_keys, 'OK', 'CHECK') AS check_result
 FROM AT_MICROBIOLOGY_EKP;
+
+
+-- Raw susceptibility result strings used by Python's ESBL labelling (analysis_plan
+-- section 6). Which strings count as resistant or susceptible is decided in
+-- lookups/3GCR.csv and lookups/3GCS.csv, not here, so this filter only selects the
+-- drugs and the ESBL marker by name.
+CREATE OR REPLACE TABLE AT_MICROBIOLOGY_RESULTS AS
+SELECT DISTINCT
+    m.SUBJECT,
+    m.LAB_TEST_ID,
+    m.ORGANISM_BUG,
+    LOWER(TRIM(m.SENSITIVITY)) AS sensitivity
+FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
+INNER JOIN (SELECT DISTINCT SUBJECT FROM AT_ELECTIVE_SURGERY_COHORT) c ON m.SUBJECT = c.SUBJECT
+WHERE LOWER(m.ORGANISM_BUG) IN ('escherichia coli', 'klebsiella pneumoniae', 'klebsiella oxytoca', 'proteus mirabilis')
+  AND LOWER(TRIM(m.SENSITIVITY)) LIKE ANY (
+        'cefotaxime :%', 'ceftazidime :%', 'ceftriaxone :%', 'cefpodoxime :%',
+        'cefixime :%', 'esbl markers (ss = present) :%'
+  );
+
+
+-- CHECK: every result belongs to a sample in AT_MICROBIOLOGY_EKP, and rows are unique.
+SELECT
+    COUNT(*)                                                         AS n_result_rows,
+    COUNT(DISTINCT r.SUBJECT, r.LAB_TEST_ID, r.ORGANISM_BUG, r.sensitivity) AS n_distinct_rows,
+    COUNT_IF(e.LAB_TEST_ID IS NULL)                                  AS n_orphans,
+    IFF(n_result_rows > 0 AND n_result_rows = n_distinct_rows AND n_orphans = 0, 'OK', 'CHECK') AS check_result
+FROM AT_MICROBIOLOGY_RESULTS r
+LEFT JOIN (SELECT DISTINCT LAB_TEST_ID, ORGANISM_BUG FROM AT_MICROBIOLOGY_EKP) e
+    ON r.LAB_TEST_ID = e.LAB_TEST_ID AND r.ORGANISM_BUG = e.ORGANISM_BUG;

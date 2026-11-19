@@ -13,6 +13,7 @@
 --                                      comorbidicare maps to a Charlson condition; all history
 --           AT_ADMINISTRATIONS         spell x drug (non-antibiotic classes); built, not exported
 --           AT_ABX_ADMINISTRATIONS     administration, window [admission - lookback, discharge]
+--           AT_SURGERY_ABX             surgery x antibiotic administration: in the perioperative window or earlier in the spell
 --           AT_TEMPERATURE             observation within the spell
 --           AT_PATHOLOGY               result within the spell (infection test codes)
 --           AT_CRP                     result within the spell
@@ -158,7 +159,8 @@ SELECT DISTINCT
     TRY_TO_TIMESTAMP(a.ADMINISTRATION_DT::STRING) AS administration_ts,
     a.MEDICATION_NAME_SHORT,
     a.THERAPEUTICAL_CLASS,
-    a.ROUTE
+    a.ROUTE,
+    a.ADMINISTRATION_STATUS
 FROM AT_INFECTION_SPELLS s
 CROSS JOIN AT_PARAMS p
 INNER JOIN ICHT_PROD.ICARE_ICHT.ICARE_PHARMACY_ADMINISTRATION_ANON a
@@ -166,6 +168,46 @@ INNER JOIN ICHT_PROD.ICARE_ICHT.ICARE_PHARMACY_ADMINISTRATION_ANON a
     AND LOWER(a.THERAPEUTICAL_CLASS) = 'anti-infectives'
     AND TO_DATE(TRY_TO_TIMESTAMP(a.ADMINISTRATION_DT::STRING))
         BETWEEN DATEADD(day, -1 * p.lookback_days, s.admission_d) AND s.discharge_d;
+
+
+-- Antibiotics around each surgery ------------------------------------------------------------
+-- One row per (surgery, antibiotic administration) from admission up to the end of the window:
+--   in_window     = 1: from prophylaxis_hours_before_start before surgery start to
+--                      prophylaxis_hours_after_stop after surgery stop (the prophylaxis course)
+--   before_window = 1: earlier in the same spell (the patient was already on antibiotics)
+-- Python (esbl_rf) chooses the index surgery per episode by surgery_event_id, keeps antibacterial
+-- drugs, applies the route and status rules, and groups the course. Antibiotics before admission
+-- are in AT_ABX_ADMINISTRATIONS (past antibiotics), not here.
+CREATE OR REPLACE TABLE AT_SURGERY_ABX AS
+SELECT DISTINCT
+    c.SUBJECT,
+    c.SPELL_IDENTIFIER,
+    c.surgery_event_id,
+    c.surgery_start_ts,
+    c.surgery_stop_ts,
+    a.MEDICATION_NAME_SHORT,
+    a.ROUTE,
+    a.ADMINISTRATION_STATUS,
+    a.administration_ts,
+    IFF(a.administration_ts >= DATEADD(hour, -1 * p.prophylaxis_hours_before_start, c.surgery_start_ts)
+        AND a.administration_ts <= DATEADD(hour, p.prophylaxis_hours_after_stop, c.surgery_stop_ts), 1, 0) AS in_window,
+    IFF(a.administration_ts < DATEADD(hour, -1 * p.prophylaxis_hours_before_start, c.surgery_start_ts), 1, 0) AS before_window
+FROM AT_ELECTIVE_SURGERY_COHORT c
+CROSS JOIN AT_PARAMS p
+INNER JOIN AT_ABX_ADMINISTRATIONS a
+    ON  c.SUBJECT = a.SUBJECT
+    AND c.SPELL_IDENTIFIER = a.SPELL_IDENTIFIER
+    AND a.administration_ts >= c.admission_ts
+    AND a.administration_ts <= DATEADD(hour, p.prophylaxis_hours_after_stop, c.surgery_stop_ts);
+
+-- CHECK: how many surgeries have an antibiotic in the window / earlier in the spell (aggregate, for you to read).
+SELECT COUNT(*)                                            AS n_rows,
+       COUNT(DISTINCT surgery_event_id)                    AS n_surgeries_with_abx,
+       COUNT(DISTINCT IFF(in_window = 1, surgery_event_id, NULL))     AS n_surgeries_with_window_dose,
+       COUNT(DISTINCT IFF(before_window = 1, surgery_event_id, NULL)) AS n_surgeries_already_on_abx,
+       (SELECT COUNT(DISTINCT surgery_event_id) FROM AT_ELECTIVE_SURGERY_COHORT s
+         WHERE s.SPELL_IDENTIFIER IN (SELECT SPELL_IDENTIFIER FROM AT_INFECTION_SPELLS)) AS n_surgeries_in_infection_spells
+FROM AT_SURGERY_ABX;
 
 
 -- Temperature -------------------------------------------------------------------

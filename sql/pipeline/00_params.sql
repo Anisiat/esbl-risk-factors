@@ -34,6 +34,11 @@ SELECT
     30                 AS max_days_after_surgery,  -- samples are linked up to this many days after a spell's last surgery
                                                    -- (same value as config.yaml: sample_eligibility.max_days_after_surgery)
 
+    -- Perioperative antibiotic window around each surgery (decided 2026-11-18):
+    -- from prophylaxis_hours_before_start before surgery start to prophylaxis_hours_after_stop after surgery stop.
+    2                  AS prophylaxis_hours_before_start,
+    1                  AS prophylaxis_hours_after_stop,
+
     -- Short commit hash of the code that produced the tables (git rev-parse --short HEAD,
     -- run before zipping). Update it after each commit you upload.
     '82aeef7'          AS git_hash;

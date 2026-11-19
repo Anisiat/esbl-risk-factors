@@ -128,6 +128,7 @@ WITH checks AS (
     UNION ALL SELECT 'aux_prescriptions_empty',   'aux', 'WARN', COUNT(*), '> 0 (0 = no medication name matched comorbidicare''s list; check MEDICATION_NAME_SHORT values)', COUNT(*) > 0 FROM AT_PRESCRIPTIONS
     UNION ALL SELECT 'aux_administrations_empty', 'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_ADMINISTRATIONS
     UNION ALL SELECT 'aux_abx_empty',             'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_ABX_ADMINISTRATIONS
+    UNION ALL SELECT 'aux_surgery_abx_empty',     'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_SURGERY_ABX
     UNION ALL SELECT 'aux_temperature_empty',     'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_TEMPERATURE
     UNION ALL SELECT 'aux_pathology_empty',       'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_PATHOLOGY
     UNION ALL SELECT 'aux_crp_empty',             'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_CRP
@@ -208,6 +209,7 @@ UNION ALL SELECT 'rows', 'AT_DIAGNOSES',                    COUNT(*)::STRING FRO
 UNION ALL SELECT 'rows', 'AT_PRESCRIPTIONS',                COUNT(*)::STRING FROM AT_PRESCRIPTIONS
 UNION ALL SELECT 'rows', 'AT_ADMINISTRATIONS',              COUNT(*)::STRING FROM AT_ADMINISTRATIONS
 UNION ALL SELECT 'rows', 'AT_ABX_ADMINISTRATIONS',          COUNT(*)::STRING FROM AT_ABX_ADMINISTRATIONS
+UNION ALL SELECT 'rows', 'AT_SURGERY_ABX',                  COUNT(*)::STRING FROM AT_SURGERY_ABX
 UNION ALL SELECT 'rows', 'AT_TEMPERATURE',                  COUNT(*)::STRING FROM AT_TEMPERATURE
 UNION ALL SELECT 'rows', 'AT_PATHOLOGY',                    COUNT(*)::STRING FROM AT_PATHOLOGY
 UNION ALL SELECT 'rows', 'AT_CRP',                          COUNT(*)::STRING FROM AT_CRP

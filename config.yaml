@@ -156,6 +156,7 @@ raw_csv:
   diagnoses: diagnoses.csv
   prescriptions: prescriptions.csv
   abx_administrations: abx_administrations.csv
+  surgery_abx: surgery_abx.csv
   temperature: temperature.csv
   crp: crp.csv
   inpatient_exposure: prior_inpatient_exposure.csv

@@ -60,6 +60,9 @@ SELECT * FROM AT_PRESCRIPTIONS;
 -- OUTPUT CSV: abx_administrations.csv grain: administration (within window)
 SELECT * FROM AT_ABX_ADMINISTRATIONS;
 
+-- OUTPUT CSV: surgery_abx.csv         grain: (surgery, antibiotic administration) in the perioperative window or earlier in the spell
+SELECT * FROM AT_SURGERY_ABX;
+
 -- OUTPUT CSV: temperature.csv         grain: observation within spell
 SELECT * FROM AT_TEMPERATURE;
 

@@ -34,6 +34,7 @@ export the CSVs listed in `10_exports.sql` into `data/raw/`.
 | `diagnoses.csv` (`AT_DIAGNOSES`) | (subject, spell, ICD code, SNOMED code) | Earliest diagnosis date per code; all history | comorbidicare evidence for the CCI (planned) |
 | `prescriptions.csv` (`AT_PRESCRIPTIONS`) | (subject, medication) | Earliest order date for the 20 medications comorbidicare maps (inhalers, some diabetes drugs) | comorbidicare evidence for chronic pulmonary disease and uncomplicated diabetes (planned) |
 | `abx_administrations.csv` (`AT_ABX_ADMINISTRATIONS`) | antibiotic administration | Drug, class, route, time; from 90 days before admission to discharge | Prior antibiotic exposure and perioperative prophylaxis group (planned) |
+| `surgery_abx.csv` (`AT_SURGERY_ABX`) | (surgery, antibiotic administration) | Antibiotics from admission to 1 h after surgery stop, flagged `in_window` (2 h before start to 1 h after stop) or `before_window` (already on antibiotics) | Prophylaxis group and the "already on antibiotics" category (planned) |
 | `temperature.csv` (`AT_TEMPERATURE`) | observation in the spell | Temperature and time | Temperature covariate (planned) |
 | `crp.csv` (`AT_CRP`) | result in the spell | CRP value and time | CRP covariate (planned) |
 | `prior_inpatient_exposure.csv` (`AT_PRIOR_ADMISSIONS`) | (index spell, prior spell) | Earlier stays overlapping the 90 days before admission | Prior hospitalisation (inpatient only) (planned) |

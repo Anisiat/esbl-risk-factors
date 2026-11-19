@@ -7,8 +7,9 @@ reproducible to a standard suitable for code release).
 
 ## Working rules (read first)
 
-- **Plan first, then ask before every file change.** Propose a plan, wait for
-  approval, and confirm before creating, editing, moving or deleting any file.
+- **Plan first. After approval, implement on a feature branch and run the
+  tests.** Never commit to `main`. Stop and ask before any change to a study
+  definition.
 - **Never change study definitions** (cohort, episode, outcome, prophylaxis
   grouping, exposure windows) without asking. If code and this file disagree,
   stop and flag it.
@@ -20,6 +21,25 @@ reproducible to a standard suitable for code release).
 - **`legacy/` is read-only reference.** Port logic from it deliberately; never
   import from it. When porting, state what changed and why.
 - Prefer small, reviewable changes. One task per session.
+
+## Git workflow
+
+- **`main` always passes `pytest tests/` and can be bundled.** The SDE zip is
+  built from a commit, and every `run_log.txt` records that commit, so nothing
+  half-finished goes on `main`.
+- **Every change goes on a branch**, created without asking. Name it
+  `<area>/<short-task>` (e.g. `exposures/prophylaxis`, `models/univariable`).
+  One task per branch. Nothing is committed directly to `main`, however small.
+- **Branch from an up-to-date `main`**, commit small, and run the synthetic
+  end-to-end test before merging back.
+- **Ask before** merging into `main`, pushing, force-pushing, or deleting a
+  branch or tag. Branch creation and commits on a branch are covered by the
+  rule above (commit messages still end with the Co-Authored-By line).
+- **Bundle only from `main`**, then tag the commit that was uploaded
+  (`sde-YYYY-MM-DD`) so a result in the SDE can be traced to its code.
+- **If another session may edit this repo at the same time**, work in a
+  separate `git worktree` (or the app's worktree option) so two sessions never
+  share one working tree.
 
 ## Study design
 
@@ -143,8 +163,7 @@ When porting each function:
 - keep the original function name and behaviour where it works, and state
   what changed and why.
 
-The structure is built one file at a time, together, with the reasoning
-explained at each step. Phase 1 should reproduce the baseline's results except
+Phase 1 should reproduce the baseline's results except
 for the changes listed in the analysis plan.
 
 - Each step is a function `run_<step>(cfg) -> DataFrame` that reads the

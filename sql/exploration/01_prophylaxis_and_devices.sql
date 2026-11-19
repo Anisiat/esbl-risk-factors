@@ -63,7 +63,7 @@ ORDER BY n_patients DESC;
 
 
 -- 5. Is surgery stop reliable? (prophylaxis window ends 1 h after surgery stop) ------------------
--- One row of counts: suppress any value below 10 before copying it out.
+-- One row of counts: suppress any value below 5 before copying it out.
 WITH s AS (
     SELECT TRY_TO_TIMESTAMP(SURGERY_START_DT::STRING) AS start_ts,
            TRY_TO_TIMESTAMP(SURGERY_STOP_DT::STRING)  AS stop_ts

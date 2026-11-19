@@ -132,7 +132,7 @@ exposures:
     prior_admission: prior_admission_d
     prior_discharge: prior_discharge_d
 
-suppression_threshold: 5        # counts below this are shown as <10
+suppression_threshold: 5        # counts below this are shown as <5
 
 # --- Folders and files --------------------------------------------------
 # Each folder is defined once; files below are names inside that folder.

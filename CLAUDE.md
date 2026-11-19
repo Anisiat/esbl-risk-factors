@@ -100,7 +100,7 @@ Environment: Python <!-- TODO version -->. All dependencies pinned in
 - Only `outputs/export/` is intended to leave the SDE. It contains aggregate
   tables and figures only — never row-level data.
 - Every export function applies small-number suppression automatically:
-  counts below `config.yaml: suppression_threshold` (10) are
+  counts below `config.yaml: suppression_threshold` (5) are
   shown as `<N`, with secondary suppression where a suppressed cell could be
   back-calculated from totals.
 - Flowchart counts, Table 1, model tables and subgroup tables all go through

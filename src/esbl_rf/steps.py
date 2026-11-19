@@ -12,6 +12,7 @@ import logging
 import pandas as pd
 
 from esbl_rf.cohort_derivation import record_step
+from esbl_rf.comorbidity import add_comorbidities
 from esbl_rf.demographics import attach_demographics, clean_demographics, set_sparse_ethnicity_missing
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
 from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status,
@@ -25,6 +26,7 @@ from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeri
 log = logging.getLogger(__name__)
 
 LABELLED, ELIGIBLE, EPISODES, EXPOSURES = "microbiology_labelled", "eligible_samples", "episodes", "episode_exposures"
+COMORBIDITY = "episode_comorbidity"
 EPISODE_DATES = ["admission_date", "discharge_date", "surgery_start_dt", "surgery_stop_dt", "first_culture_dt", "last_culture_dt"]
 
 
@@ -142,5 +144,22 @@ def run_exposures(cfg: dict) -> pd.DataFrame:
     return episodes
 
 
+def run_comorbidity(cfg: dict) -> pd.DataFrame:
+    """Add the 17 Charlson flags, ``cci_score`` and ``cci_group`` (via comorbidicare) to each episode.
+
+    Grain: one row per infection episode (unchanged from ``run_exposures``).
+    """
+    dates = cfg["cci"]["date_columns"]
+    episodes = _status_as_int(read_checkpoint(cfg, EXPOSURES, date_cols=EPISODE_DATES), cfg)
+    diagnoses = read_raw(cfg, "diagnoses", date_cols=dates["diagnoses"])
+    prescriptions = read_raw(cfg, "prescriptions", date_cols=dates["prescriptions"])
+    problems = read_raw(cfg, "problems", date_cols=dates["problems"], usecols=list(cfg["columns"]["problems"]))
+
+    episodes = add_comorbidities(episodes, diagnoses, prescriptions, problems, cfg)
+    assert episodes["infection_id"].is_unique, "run_comorbidity: infection_id is not unique"
+    write_checkpoint(episodes, cfg, COMORBIDITY)
+    return episodes
+
+
 # Order matters: each step reads the checkpoint of an earlier one.
-STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures}
+STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures, "comorbidity": run_comorbidity}

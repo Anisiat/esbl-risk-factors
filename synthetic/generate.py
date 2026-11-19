@@ -29,6 +29,7 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     spell_micro, ekp, results, surgeries, demo, prior = [], [], [], [], [], []
+    diag, problems, rx = [], [], []
     lab_id = 0
 
     def add_sample(subject, spell, adm, dis, age, imd, collect, organism, site, status, code="cul"):
@@ -78,12 +79,24 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
             prior.append(dict(subject=subject, spell_identifier=spell, index_admission_d=adm.normalize(),
                               prior_spell_identifier=f"old{i:03d}", prior_admission_d=(adm - pd.Timedelta(days=40)).normalize(),
                               prior_discharge_d=(adm - pd.Timedelta(days=35)).normalize()))
+        if rng.random() < 0.3:   # myocardial infarction (ICD-10 I21) diagnosed in an earlier year
+            diag.append(dict(subject=subject, spell_identifier=f"old{i:03d}", diagnosis_code_icd="I21", diagnosis_code_snomed="",
+                             diagnosis_date=str(adm - pd.Timedelta(days=400))))
+        if rng.random() < 0.1:   # same diagnosis only after admission: must not count
+            diag.append(dict(subject=subject, spell_identifier=spell, diagnosis_code_icd="E109", diagnosis_code_snomed="",
+                             diagnosis_date=str(dis)))
+        if rng.random() < 0.2:   # peripheral vascular disease on the problem list (SNOMED)
+            problems.append(dict(subject=subject, encntr_id=i, problem_code="95443002", problem_desc="pvd",
+                                 problem_dt_tm=str(adm - pd.Timedelta(days=300))))
+        if rng.random() < 0.15:  # diabetes drug
+            rx.append(dict(subject=subject, medication_name_short="gliclazide", order_dt_tm=str(adm - pd.Timedelta(days=200))))
         demo.append(dict(subject=subject, death_date="none" if rng.random() < 0.9 else str(dis.normalize()),
                          ethnicity="x", ethnicity_desc=ETHNICITY[int(rng.integers(0, len(ETHNICITY)))],
                          gender="1", gender_desc=["Male", "Female", "Not Known"][int(rng.choice(3, p=[0.48, 0.48, 0.04]))]))
 
     tables = {"spell_microbiology": spell_micro, "microbiology_ekp": ekp, "microbiology_results": results,
-              "surgery_cohort": surgeries, "demographics": demo, "prior_inpatient_exposure": prior}
+              "surgery_cohort": surgeries, "demographics": demo, "prior_inpatient_exposure": prior,
+              "diagnoses": diag, "problems": problems, "prescriptions": rx}
     frames = {}
     for name, rows in tables.items():
         df = pd.DataFrame(rows)

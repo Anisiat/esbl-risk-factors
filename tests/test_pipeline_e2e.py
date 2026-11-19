@@ -28,8 +28,13 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     for run in STEPS.values():
         run(run_cfg)
     interim = run_cfg["paths"]["interim_dir"]
-    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "cohort_derivation"):
+    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "cohort_derivation"):
         assert (interim / f"{name}.csv").is_file(), name
+
+    com = pd.read_csv(interim / "episode_comorbidity.csv")
+    assert len(com) == len(pd.read_csv(interim / "episode_exposures.csv"))
+    assert com["cci_score"].ge(0).all() and set(com["cci_group"].unique()) <= {"0", "1-2", ">=3"}
+    assert com["myocardial_infarction"].sum() > 0
 
     out = pd.read_csv(interim / "episode_exposures.csv")
     assert len(out) > 20

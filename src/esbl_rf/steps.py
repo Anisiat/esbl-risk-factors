@@ -149,11 +149,12 @@ def run_comorbidity(cfg: dict) -> pd.DataFrame:
 
     Grain: one row per infection episode (unchanged from ``run_exposures``).
     """
-    dates = cfg["cci"]["date_columns"]
+    dates, text = cfg["cci"]["date_columns"], cfg["cci"]["text_columns"]
     episodes = _status_as_int(read_checkpoint(cfg, EXPOSURES, date_cols=EPISODE_DATES), cfg)
-    diagnoses = read_raw(cfg, "diagnoses", date_cols=dates["diagnoses"])
+    diagnoses = read_raw(cfg, "diagnoses", date_cols=dates["diagnoses"], text_cols=text["diagnoses"])
     prescriptions = read_raw(cfg, "prescriptions", date_cols=dates["prescriptions"])
-    problems = read_raw(cfg, "problems", date_cols=dates["problems"], usecols=list(cfg["columns"]["problems"]))
+    problems = read_raw(cfg, "problems", date_cols=dates["problems"], usecols=list(cfg["columns"]["problems"]),
+                        text_cols=text["problems"])
 
     episodes = add_comorbidities(episodes, diagnoses, prescriptions, problems, cfg)
     assert episodes["infection_id"].is_unique, "run_comorbidity: infection_id is not unique"

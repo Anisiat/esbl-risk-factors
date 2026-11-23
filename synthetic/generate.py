@@ -85,6 +85,9 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
         if rng.random() < 0.1:   # same diagnosis only after admission: must not count
             diag.append(dict(subject=subject, spell_identifier=spell, diagnosis_code_icd="E109", diagnosis_code_snomed="",
                              diagnosis_date=str(dis)))
+        if rng.random() < 0.2:   # dementia by a 17-digit SNOMED code only: lost if the column is read as float
+            diag.append(dict(subject=subject, spell_identifier=f"old{i:03d}", diagnosis_code_icd="", diagnosis_code_snomed="16276361000119109",
+                             diagnosis_date=str(adm - pd.Timedelta(days=500))))
         if rng.random() < 0.2:   # peripheral vascular disease on the problem list (SNOMED)
             problems.append(dict(subject=subject, encntr_id=i, problem_code="95443002", problem_desc="pvd",
                                  problem_dt_tm=str(adm - pd.Timedelta(days=300))))

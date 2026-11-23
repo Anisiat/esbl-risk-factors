@@ -35,6 +35,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert len(com) == len(pd.read_csv(interim / "episode_exposures.csv"))
     assert com["cci_score"].ge(0).all() and set(com["cci_group"].unique()) <= {"0", "1-2", ">=3"}
     assert com["myocardial_infarction"].sum() > 0
+    assert com["dementia"].sum() > 0, "17-digit SNOMED code did not match: was diagnosis_code_snomed read as text?"
 
     out = pd.read_csv(interim / "episode_exposures.csv")
     assert len(out) > 20

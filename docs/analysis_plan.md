@@ -99,8 +99,9 @@ Within patient and organism, sorted by `sample_collected_dt`:
   positive culture of that organism** (rolling window).
 - Repeat isolation of the same organism within the window joins the episode.
 - Applied across all specimen types.
-- TODO: boundary. Methods say ">14 days"; the Figure S1 legend says "≥14
-  days". Choose one and fix both texts.
+- Boundary (decided 2026-11-23): a new episode needs a gap of **more than**
+  14 days (as in the Methods and the code); a repeat within 14 days, day 14
+  included, joins the episode. Fix the Figure S1 legend ("≥14 days").
 - An episode does not span two spells: episodes are built within the surgical
   (index) spell, as in the manuscript code (decided 2026-11-16). A sample
   collected after discharge belongs to the spell of its surgery.
@@ -148,7 +149,10 @@ Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
   (the SDE tables are the source; strings such as `not determined` and `not done`
   are deliberately in neither list, so they stay unknown).
 
-TODO: list the exact strings for the ESBL confirmatory test.
+ESBL confirmatory test (settled 2026-11-17, `config.yaml: outcome`): the
+laboratory's ESBL marker field (`esbl markers (ss = present)`, where
+*sensitive/susceptible* means the marker is present) and the ESBL-producer
+statement (`esbl_statement`).
 
 **Minimum evidence for a sample's status (decided 2026-11-17).** Result
 categories follow EUCAST: S = susceptible (standard dosing), I = susceptible,
@@ -193,26 +197,27 @@ exposures.
 |---|---|---|---|
 | Age | episodes | age_at_admission | continuous (per year) |
 | Sex | demographic | gender_desc | **Female** / Male |
-| Ethnicity | demographic | ethnicity_desc → 4 groups | **White**, Asian, Black, Mixed; missing kept as missing. TODO: Table 2 shows only Asian and Black. Was Mixed collapsed, dropped or merged with Other? |
+| Ethnicity | demographic | ethnicity_desc → 4 groups | **White**, Asian, Black, Mixed, Other; missing kept as missing. Mixed stays its own group; a group with fewer than `demographics.ethnicity_min_count` (30) analysed episodes is merged into Other (decided 2026-11-23; check Mixed in Table 1). Why the manuscript's Table 2 shows only Asian and Black is not explained by the synced code |
 | IMD decile | episodes | index_of_multiple_deprivation_decile | continuous (1–10) |
 | Surgical specialty | episodes | treatment_function_code → 9 groups via mapping in `config.yaml` (TODO: supply the TFC → group table) | **General surgery**, Abdominal/GI, Cardiothoracic, Gynaecological oncology, Neurology/ENT, Obstetrics/Gynaecology, Orthopaedic/plastics, Urology/Nephrology, Vascular |
 | Surgery duration | surgery | surgery_stop − surgery_start, hours. TODO: for multi-procedure events, use event start → event stop | continuous |
-| Prophylaxis group | pharmacy admin | perioperative administrations grouped per Table S1. TODO: timing window (e.g. 60 min before to 24 h after incision) | **Cefuroxime ± metronidazole**, Aminoglycoside-based, Cefuroxime ± metronidazole + aminoglycoside, Co-amoxiclav-based, Limited Enterobacterales activity, Broad-spectrum Gram-negative active, No prophylaxis, Other |
+| Prophylaxis group | pharmacy admin | IV antibacterial administrations from 2 h before surgery start to 1 h after surgery stop (decided 2026-11-23; `00_params.sql`). Course = agents within 10 min of the dose closest to surgery start, preferring non-treatment agents; grouped per Table S1 by agent class (`config.yaml: prophylaxis`). No dose in the window = No prophylaxis | **Cefuroxime ± metronidazole**, Aminoglycoside-based, Cefuroxime ± metronidazole + aminoglycoside, Co-amoxiclav-based, Limited Enterobacterales activity, Broad-spectrum Gram-negative active, No prophylaxis, Other |
 | CCI | comorbidicare | 17 Charlson flags; weighted score; evidence strictly before admission (`--cutoff admission`) | CHANGE: replaces individual comorbidities in models as the continuous `cci_score` (decided 2026-11-13; linearity checked as a sensitivity analysis). `cci_group` (0, 1–2, ≥3) is for Table 1 only |
 | Individual comorbidities | comorbidicare | the 17 Charlson flags (comorbidicare names, listed in `config.yaml: table1.supplementary_conditions`) | binary; descriptive only, no p-values. Main Table 1 shows a subset (decided 2026-11-13: malignancy, metastatic solid tumour, diabetes with/without complication, chronic pulmonary disease, renal disease, congestive heart failure); the supplementary table shows all 17. Asthma, hypertension and IHD are not among the 17 flags, so they are no longer reported |
 | Hospital exposure 90d | prior episodes | inpatient spell overlapping [admission − 90 d, admission); index spell excluded | binary |
-| Prior antibiotics 90d | pharmacy admin | any systemic antibiotic in [admission − 90 d, admission) | binary |
+| Prior antibiotics 90d | pharmacy admin | any antibacterial administration (any route) 1–90 calendar days before the admission date; secondary-care administrations only | binary |
 | Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, clinical or screening sample, collected before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
 | Specimen site | microbiology | site_cleaned → groups via `config.yaml` (TODO: supply mapping; 399 episodes were missing last run, so check why) | **Blood**, Drain, Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
-| Temperature | vital signs | TODO: value and window (e.g. maximum within ±24 h of index sample) | continuous (°C) |
-| CRP | pathology | TODO: value and window | continuous (mg/L) |
+| Temperature | vital signs | value closest to the episode's first culture within ±48 h, in the spell and after surgery start; values outside 30–45 °C dropped (decided 2026-11-23) | continuous (°C); descriptive only |
+| CRP | pathology | as temperature; values outside 0–1000 mg/L dropped | continuous (mg/L); descriptive only |
 | Length of stay | episodes | discharge_date − admission_date of the spell, days | descriptive outcome |
-| In-hospital mortality | episodes | discharge_method / discharge_destination = died (TODO: exact codes) | descriptive outcome |
+| In-hospital mortality | episodes | `discharge_method` = 4 (NHS Data Dictionary: patient died); 8/9 = missing. `death_date` is not used: it is anonymised to month/year (decided 2026-11-23) | descriptive outcome |
 
-TODO: temperature and CRP are in Tables 1–2 (temperature is in the
-multivariable model) but are not listed in the Methods "Exposure variables".
-Either add them to the Methods or drop them from the model.
+Temperature and CRP are descriptive only (decided 2026-11-23): they are signs
+of the infection, not risk factors for it, and many values are missing. They
+are in Table 1, not in the models (CHANGE: temperature was in the manuscript's
+multivariable model).
 
 ## 8. Statistical analysis
 
@@ -230,8 +235,9 @@ Either add them to the Methods or drop them from the model.
    patient.
 6. **Exploratory subgroups:** by surgical specialty and by specimen site;
    report n, events and EPV per stratum; skip strata with EPV below
-   `config.yaml: min_subgroup_epv` (TODO value, e.g. 5) and report them as
-   not estimable.
+   `config.yaml: min_subgroup_epv` (5, decided 2026-11-23) and report them as
+   not estimable; flag strata with EPV 5–9 as unstable. EPV counts model
+   parameters (each dummy level), not variables.
 7. **Missing data:** complete-case analysis. Report the sequential
    complete-case loss per variable.
 8. **Diagnostics:** EPV overall; VIFs for all model terms (flag > 5);
@@ -250,8 +256,11 @@ admissions by specialty (descriptive; uses the step 1 denominator).
 All outputs go to `outputs/export/`, with small-number suppression applied
 (see CLAUDE.md).
 
-**Flowchart:** `flowchart_counts.csv` with columns step, description,
-admissions, patients, samples, episodes, esbl_pos, previous_run, change_pct.
+**Flowchart:** `flowchart_counts.csv`, one row per box: SQL steps
+(`qa_flowchart_sql.csv`) then Python steps, with admissions, patients,
+surgery events, samples, episodes, ESBL-positive episodes and the number
+excluded at each step (`esbl_rf.cohort_derivation.build_flowchart`). No
+comparison with the previous run (decided 2026-11-23).
 
 **Table 1:** columns Characteristic | Missing | Overall | ESBL-positive |
 Non-ESBL (no p-value column). Row blocks: Patient characteristics, Surgical
@@ -283,8 +292,8 @@ VIF, and the variables dropped or collapsed.
 3. CCI (comorbidicare, admission cutoff) replaces individual comorbidities in
    the models.
 4. Study end date harmonised across the SQL, manuscript and flowchart.
-5. All counts are compared against the previous run so changes can be
-   explained in the revised manuscript.
+5. Counts are not compared against the previous run in the outputs (decided
+   2026-11-23); differences are explained in the revised manuscript.
 6. Table 1: `delta_hours_prophylaxis`, `n_sites`, `n_samples` and
    `culture_span_days` are summarised as median [IQR] instead of mean (SD)
    (decided 2026-11-13; skewed counts/durations). `n_sites` and `n_samples`
@@ -329,8 +338,9 @@ VIF, and the variables dropped or collapsed.
     belong in released code). Ethnicity is grouped from the `ethnicity_desc` values
     in the data dictionary (list in `config.yaml: demographics`; the manuscript
     mapping left some values, e.g. "British" and "Indian", unmapped). Unlisted values
-    become missing. Groups with fewer than 30 episodes are set to missing,
-    counted over analysed episodes (the manuscript counted over all patients).
+    become missing. Groups with fewer than 30 episodes are merged into Other,
+    counted over analysed episodes (decided 2026-11-23; replaces "set to
+    missing"; the manuscript counted over all patients).
     Sex is `female` / `male`; "unspecified" and "not known" become missing.
     `subject` must be unique in the demographics table.
 19. A&E (emergency) and outpatient exposures and colonisation are dropped; only
@@ -341,3 +351,18 @@ VIF, and the variables dropped or collapsed.
     swabs) as well as clinical samples, any time before the index admission
     (decided 2026-11-18; the screening exclusion applies to index samples only).
     Samples without a usable susceptibility result are unknown, not positive.
+21. Prophylaxis (decided 2026-11-23): window from 2 h before surgery start to
+    1 h after surgery **stop** (the manuscript: 1 h after start), with no
+    second pass (the manuscript fell back to any IV dose within 6 h of
+    surgery). Courses are grouped by each agent's class rather than by
+    substring matches on the joined course string; same rules, same order.
+22. In-hospital mortality from the discharge method (code 4), not
+    `death_date`, which is anonymised to month/year (decided 2026-11-23).
+23. Temperature and CRP: closest value within ±48 h of the first culture, in
+    the spell and after surgery; descriptive only, removed from the models
+    (decided 2026-11-23).
+24. Prior antibiotics use calendar days (1–90 days before the admission date)
+    instead of floored 24-hour differences from the admission time.
+25. Models report odds ratios only: the manuscript code's train/test split,
+    AUROC and bootstrap (prediction-model metrics) are dropped (decided
+    2026-11-23).

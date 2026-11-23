@@ -28,7 +28,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     for run in STEPS.values():
         run(run_cfg)
     interim = run_cfg["paths"]["interim_dir"]
-    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "cohort_derivation", "flowchart"):
+    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "episode_clinical", "cohort_derivation", "flowchart"):
         assert (interim / f"{name}.csv").is_file(), name
 
     com = pd.read_csv(interim / "episode_comorbidity.csv")
@@ -36,6 +36,17 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert com["cci_score"].ge(0).all() and set(com["cci_group"].unique()) <= {"0", "1-2", ">=3"}
     assert com["myocardial_infarction"].sum() > 0
     assert com["dementia"].sum() > 0, "17-digit SNOMED code did not match: was diagnosis_code_snomed read as text?"
+
+    clin = pd.read_csv(interim / "episode_clinical.csv")
+    assert len(clin) == len(com)
+    assert clin["past_abx"].isin([0, 1]).all() and 0 < clin["past_abx"].sum() < len(clin)
+    groups = set(clin["prophylaxis_group"])
+    assert {"cefuroxime +/- metronidazole", "co-amoxiclav-based", "no_prophylaxis"} <= groups
+    assert not clin["prophylaxis"].fillna("").str.contains("fluconazole|ciprofloxacin").any()
+    temp = clin["temperature"].dropna()
+    assert temp.between(30, 45).all() and len(temp) > len(clin) / 2   # Fahrenheit value dropped
+    assert clin["crp"].notna().any() and clin["crp"].isna().any()
+    assert clin["in_hosp_mortality"].sum() > 0
 
     out = pd.read_csv(interim / "episode_exposures.csv")
     assert len(out) > 20

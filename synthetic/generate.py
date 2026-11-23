@@ -30,6 +30,8 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
     out_dir.mkdir(parents=True, exist_ok=True)
     spell_micro, ekp, results, surgeries, demo, prior = [], [], [], [], [], []
     diag, problems, rx = [], [], []
+    surgery_abx, abx_admin, temperature, crp = [], [], [], []
+    discharge_method = {}   # spell -> NHS discharge method code (4 = died)
     lab_id = 0
 
     def add_sample(subject, spell, adm, dis, age, imd, collect, organism, site, status, code="cul"):
@@ -42,7 +44,8 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
         ekp.append(base)
         if spell is not None:
             spell_micro.append({**base, "spell_identifier": spell, "admission_ts": str(adm), "discharge_ts": str(dis),
-                                "age_at_admission_n": age, "index_of_multiple_deprivation_decile": imd})
+                                "age_at_admission_n": age, "index_of_multiple_deprivation_decile": imd,
+                                "discharge_method": discharge_method.get(spell, 1)})
         strings = {"esbl": RESISTANT, "non": SUSCEPTIBLE, "unknown": []}[status]
         for s in strings:
             results.append(dict(subject=subject, lab_test_id=lab_id, organism_bug=organism, sensitivity=s))
@@ -62,6 +65,41 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
                               surgery_stop_ts=str(surg_start + pd.Timedelta(hours=3)), procedure_desc="hernia repair",
                               surgical_area="abdomen", treatment_function_code_des=TFC[int(rng.integers(0, len(TFC)))]))
         first = surg_start + pd.Timedelta(days=3)
+        discharge_method[spell] = 4 if rng.random() < 0.1 else (9 if rng.random() < 0.05 else 1)
+        event = f"e{i:03d}"
+
+        def abx(name, when, route="IV", in_window=1):
+            surgery_abx.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=event,
+                                    surgery_start_ts=str(surg_start), surgery_stop_ts=str(surg_start + pd.Timedelta(hours=3)),
+                                    medication_name_short=name, route=route, administration_status="Given",
+                                    administration_ts=str(when), in_window=in_window, before_window=0))
+
+        r = rng.random()
+        if r < 0.6:      # cefuroxime + metronidazole at induction (the reference group)
+            abx("Cefuroxime", surg_start - pd.Timedelta(minutes=30))
+            abx("Metronidazole", surg_start - pd.Timedelta(minutes=25))
+            if rng.random() < 0.2:   # plus gentamicin
+                abx("Gentamicin", surg_start - pd.Timedelta(minutes=20))
+        elif r < 0.75:   # co-amoxiclav; an oral dose and a non-antibiotic in the window must be ignored
+            abx("Co-Amoxiclav (contains penicillin)", surg_start - pd.Timedelta(minutes=40))
+            abx("Ciprofloxacin", surg_start - pd.Timedelta(minutes=40), route="Oral")
+            abx("Fluconazole", surg_start - pd.Timedelta(minutes=40))
+        elif r < 0.85:   # treatment agent outside the window only: no prophylaxis
+            abx("Meropenem", surg_start - pd.Timedelta(hours=10), in_window=0)
+        if rng.random() < 0.3:   # antibiotic 40 days before admission: past_abx = 1
+            abx_admin.append(dict(subject=subject, spell_identifier=spell, medication_name_short="Amoxicillin (contains penicillin)",
+                                  route="Oral", administration_status="Given", administration_ts=str(adm - pd.Timedelta(days=40))))
+        abx_admin.append(dict(subject=subject, spell_identifier=spell, medication_name_short="Cefuroxime", route="IV",
+                              administration_status="Given", administration_ts=str(surg_start)))   # in the spell: not past
+        temperature.append(dict(subject=subject, spell_identifier=spell, temp_performed_ts=str(first - pd.Timedelta(hours=6)),
+                                temperature=str(round(37 + rng.random() * 2, 1))))
+        temperature.append(dict(subject=subject, spell_identifier=spell, temp_performed_ts=str(first - pd.Timedelta(hours=1)),
+                                temperature="101.3"))   # Fahrenheit: implausible, dropped
+        temperature.append(dict(subject=subject, spell_identifier=spell, temp_performed_ts=str(adm + pd.Timedelta(hours=2)),
+                                temperature="36.5"))    # before surgery: not used
+        if rng.random() < 0.7:
+            crp.append(dict(subject=subject, spell_identifier=spell, sample_collected_ts=str(first + pd.Timedelta(hours=10)),
+                            crp=float(rng.integers(5, 300))))
         add_sample(subject, spell, adm, dis, age, imd, first, organism, site, status)
         if rng.random() < 0.5:   # second sample, same episode
             add_sample(subject, spell, adm, dis, age, imd, first + pd.Timedelta(days=5), organism, site, "non")
@@ -99,7 +137,8 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
 
     tables = {"spell_microbiology": spell_micro, "microbiology_ekp": ekp, "microbiology_results": results,
               "surgery_cohort": surgeries, "demographics": demo, "prior_inpatient_exposure": prior,
-              "diagnoses": diag, "problems": problems, "prescriptions": rx}
+              "diagnoses": diag, "problems": problems, "prescriptions": rx, "surgery_abx": surgery_abx,
+              "abx_administrations": abx_admin, "temperature": temperature, "crp": crp}
     tables["qa_flowchart_sql"] = _sql_flowchart(pd.DataFrame(surgeries), pd.DataFrame(spell_micro))
     frames = {}
     for name, rows in tables.items():

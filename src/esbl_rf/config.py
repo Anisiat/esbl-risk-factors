@@ -14,7 +14,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "sites": ("other_label", "groups", "hierarchy"),
     "episode_table": ("spell_columns", "index_sample_columns"),
     "episodes": ("gap_days",),
-    "demographics": ("ethnicity_groups", "ethnicity_min_count", "gender_groups"),
+    "demographics": ("ethnicity_groups", "ethnicity_min_count", "ethnicity_sparse_into", "gender_groups"),
     "exposures": ("lookback_days", "prior_esbl_lookback_days", "inpatient_columns"),
     "outcome": ("resistant_drugs", "susceptible_alone_drugs", "susceptible_pairs", "marker_prefix",
                 "marker_positive", "marker_negative", "esbl_statement_column"),
@@ -26,6 +26,11 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
                 "surgery_stop", "surgery_anchor", "procedure", "culture_type", "site_group", "tfc_desc", "tfc_group", "organism", "culture_code", "site", "surgery_columns",
                 "sample_key", "outcome"),
     "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
+    "antibiotics": ("medication_col", "route_col", "time_col", "non_antibiotic_suffixes", "exclude", "keep",
+                    "therapeutic_agents"),
+    "prophylaxis": ("iv_routes", "combine_minutes", "agent_classes", "group_labels"),
+    "clinical": ("window_hours", "temperature", "crp"),
+    "mortality": ("discharge_method_col", "died_codes", "unknown_codes"),
     "flowchart": ("sql_link_step", "sql_informational_steps"),
     "cci": ("cutoff", "date_columns", "text_columns", "group_edges", "group_labels"),
     "logistic_regression": ("cluster_col", "id_columns", "predictors", "reference_levels"),
@@ -63,6 +68,13 @@ def _check_values(cfg: dict) -> list[str]:
         problems.append("exposures.lookback_days must be positive")
     if cfg["demographics"]["ethnicity_min_count"] < 0:
         problems.append("demographics.ethnicity_min_count is negative")
+    if cfg["demographics"]["ethnicity_sparse_into"] not in set(cfg["demographics"]["ethnicity_groups"].values()):
+        problems.append(f"demographics.ethnicity_sparse_into '{cfg['demographics']['ethnicity_sparse_into']}' "
+                        "is not an ethnicity group")
+    ref = cfg["logistic_regression"]["reference_levels"].get("prophylaxis_group")
+    if ref is not None and ref not in cfg["prophylaxis"]["group_labels"].values():
+        problems.append(f"logistic_regression.reference_levels.prophylaxis_group '{ref}' is not in "
+                        "prophylaxis.group_labels")
     if cfg["suppression_threshold"] < 1:
         problems.append("suppression_threshold must be at least 1")
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from esbl_rf.cohort_derivation import derivation_table, record_step, reset_derivation
+from esbl_rf.cohort_derivation import build_flowchart, derivation_table, record_step, reset_derivation
 
 
 @pytest.fixture
@@ -82,3 +82,56 @@ def test_reset_clears_the_log(cfg_tmp):
     record_step(cfg_tmp, "a", THREE)
     reset_derivation(cfg_tmp)
     assert len(derivation_table(cfg_tmp)) == 0
+
+
+def test_admissions_and_esbl_positive_counted(cfg_tmp):
+    episodes = pd.DataFrame({"subject": ["p1", "p1", "p2"], "spell_identifier": ["s1", "s2", "s3"],
+                             "infection_id": ["a", "b", "c"], "esbl_status": [1, 0, 1]})
+    record_step(cfg_tmp, "episodes", episodes, episode_col="infection_id", esbl_col="esbl_status")
+    row = derivation_table(cfg_tmp).iloc[0]
+    assert (row["n_admissions"], row["n_esbl_pos"]) == (3, 2)
+
+
+def test_esbl_count_on_sample_level_rows_raises(cfg_tmp):
+    df = THREE.assign(infection_id=["a", "a", "b"], esbl_status=[1, 1, 0])
+    with pytest.raises(ValueError, match="one row per episode"):
+        record_step(cfg_tmp, "x", df, episode_col="infection_id", esbl_col="esbl_status")
+
+
+# --- build_flowchart ------------------------------------------------------
+
+def sql_flow(adm3: int = 3, pat3: int = 2) -> pd.DataFrame:
+    return pd.DataFrame({
+        "step": [1, 2, 3, 31], "description": ["all", "elective", "culture", "of which"],
+        "n_admissions": [10, 8, adm3, 1], "n_patients": [9, 7, pat3, 1],
+        "n_surgery_events": [12, 9, None, None], "n_cultures": [None, None, 4, 2]})
+
+
+def py_log(cfg_tmp) -> pd.DataFrame:
+    df = THREE.assign(spell_identifier=["s1", "s2", "s3"])
+    record_step(cfg_tmp, "samples", df)
+    record_step(cfg_tmp, "eligible", df.iloc[:2])
+    return derivation_table(cfg_tmp)
+
+
+def test_flowchart_joins_sql_then_python(cfg_tmp):
+    out = build_flowchart(sql_flow(), py_log(cfg_tmp), cfg_tmp)
+    assert list(out["source"]) == ["sql"] * 4 + ["python"] * 2
+    assert list(out["order"]) == [1, 2, 3, 4, 5, 6]
+    assert out.loc[1, "patients_excluded"] == 2              # 9 -> 7
+    assert pd.isna(out.loc[3, "patients_excluded"])          # informational row: outside the chain
+    assert out.loc[4, "patients_excluded"] == 0              # SQL step 3 -> first Python step
+    assert pd.isna(out.loc[4, "samples_excluded"])           # different grain, not an exclusion
+    assert out.loc[5, "patients_excluded"] == 1
+
+
+def test_flowchart_mismatched_builds_raise(cfg_tmp):
+    with pytest.raises(ValueError, match="same SQL build"):
+        build_flowchart(sql_flow(adm3=5), py_log(cfg_tmp), cfg_tmp)
+
+
+def test_flowchart_rising_patients_raise(cfg_tmp):
+    flow = sql_flow()
+    flow.loc[1, "n_patients"] = 1                            # step 2 below step 3
+    with pytest.raises(ValueError, match="patient count rises"):
+        build_flowchart(flow, py_log(cfg_tmp), cfg_tmp)

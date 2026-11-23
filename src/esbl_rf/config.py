@@ -26,6 +26,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
                 "surgery_stop", "surgery_anchor", "procedure", "culture_type", "site_group", "tfc_desc", "tfc_group", "organism", "culture_code", "site", "surgery_columns",
                 "sample_key", "outcome"),
     "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
+    "flowchart": ("sql_link_step", "sql_informational_steps"),
     "cci": ("cutoff", "date_columns", "group_edges", "group_labels"),
     "logistic_regression": ("cluster_col", "id_columns", "predictors", "reference_levels"),
 }

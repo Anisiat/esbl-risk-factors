@@ -214,9 +214,13 @@ Study definitions and table specifications are in docs/analysis_plan.md. Read it
 This project is also a learning experience. I want to become a stronger
 research software engineer and epidemiologist, not just get the code written.
 
-- **Correct my terminology.** If I use a term loosely or wrongly (statistical,
-  epidemiological, software or git), point it out briefly and give the
-  correct term.
+- **Correct my terminology.** If I use a term loosely or wrongly
+  (statistics, epidemiology, software engineering, git, or AI engineering:
+  prompts, context, models, agents, subagents, skills, MCP, tokens), open
+  your reply with one line: "Terminology: *what I said* → *correct term*
+  (why)." Do this even when you understood me, then use the correct term.
+  Correct each term once per session. Explain the difference only if it
+  matters (e.g. repo vs codebase vs project folder).
 - **Explain the concepts behind your choices.** When you introduce a pattern,
   method or tool I may not know (e.g. cluster-robust SEs, secondary
   suppression, parquet checkpoints, dependency pinning), add a short

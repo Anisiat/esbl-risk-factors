@@ -43,11 +43,25 @@ def parse_datetimes(series: pd.Series, name: str, step: str) -> pd.Series:
     return parsed
 
 
-def _read_csv(path: Path, step: str, date_cols: Iterable[str] = (), usecols: list[str] | None = None) -> pd.DataFrame:
-    """Read one CSV, check it exists and has the expected columns, and parse dates."""
+def _read_csv(path: Path, step: str, date_cols: Iterable[str] = (), usecols: list[str] | None = None,
+              text_cols: Iterable[str] = ()) -> pd.DataFrame:
+    """Read one CSV, check it exists and has the expected columns, and parse dates.
+
+    ``text_cols`` are read as strings, so long numeric codes (e.g. 17-18 digit
+    SNOMED CT codes) are not turned into floats, which keep only ~16 digits.
+    """
     if not path.is_file():
         raise FileNotFoundError(f"{step}: file not found: {path}")
-    df = pd.read_csv(path, low_memory=False)
+    text_cols = list(text_cols)
+    dtype = None
+    if text_cols:
+        # Match on the normalised (stripped, lower-case) header, as below.
+        header = {str(c).strip().lower(): c for c in pd.read_csv(path, nrows=0).columns}
+        absent = [c for c in text_cols if c not in header]
+        if absent:
+            raise ValueError(f"{step}: {path.name} is missing text column(s) {absent}; has {list(header)}")
+        dtype = {header[c]: str for c in text_cols}
+    df = pd.read_csv(path, low_memory=False, dtype=dtype)
     # Snowflake exports upper-case headers; the pipeline uses lower-case names.
     df.columns = df.columns.astype(str).str.strip().str.lower()
     if usecols is not None:
@@ -71,7 +85,8 @@ def _lookup_path(cfg: dict, section: str, name: str) -> Path:
     return cfg[section][name]
 
 
-def read_raw(cfg: dict, name: str, date_cols: Iterable[str] = (), usecols: list[str] | None = None) -> pd.DataFrame:
+def read_raw(cfg: dict, name: str, date_cols: Iterable[str] = (), usecols: list[str] | None = None,
+             text_cols: Iterable[str] = ()) -> pd.DataFrame:
     """Read a raw SDE export named in ``config.yaml: raw_csv``.
 
     Parameters
@@ -84,13 +99,15 @@ def read_raw(cfg: dict, name: str, date_cols: Iterable[str] = (), usecols: list[
         Columns to parse as dates (``'none'`` and bad values become ``NaT``).
     usecols : list of str, optional
         Columns to keep. Each must exist in the file.
+    text_cols : iterable of str
+        Columns to read as strings (codes and identifiers). Each must exist.
 
     Returns
     -------
     pd.DataFrame
         The table with its original grain.
     """
-    return _read_csv(_lookup_path(cfg, "raw_csv", name), f"read_raw[{name}]", date_cols, usecols)
+    return _read_csv(_lookup_path(cfg, "raw_csv", name), f"read_raw[{name}]", date_cols, usecols, text_cols)
 
 
 def read_lookup(cfg: dict, name: str) -> pd.DataFrame:

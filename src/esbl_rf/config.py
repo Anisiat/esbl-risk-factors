@@ -27,7 +27,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
                 "sample_key", "outcome"),
     "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
     "flowchart": ("sql_link_step", "sql_informational_steps"),
-    "cci": ("cutoff", "date_columns", "group_edges", "group_labels"),
+    "cci": ("cutoff", "date_columns", "text_columns", "group_edges", "group_labels"),
     "logistic_regression": ("cluster_col", "id_columns", "predictors", "reference_levels"),
 }
 _PREDICTOR_TYPES = ("continuous", "binary", "categorical")

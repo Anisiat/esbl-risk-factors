@@ -331,6 +331,9 @@ cci:
     diagnoses: [diagnosis_date]
     problems: [problem_dt_tm]
     prescriptions: [order_dt_tm]
+  text_columns:                  # read as strings: comorbidicare matches codes as text (SNOMED exact, ICD-10 prefix)
+    diagnoses: [diagnosis_code_icd, diagnosis_code_snomed]
+    problems: [problem_code]
   group_edges: [0, 1, 3]         # cci_group: 0 | 1-2 | >=3 (left-closed bins)
   group_labels: ["0", "1-2", ">=3"]
 

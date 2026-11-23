@@ -100,12 +100,37 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
     tables = {"spell_microbiology": spell_micro, "microbiology_ekp": ekp, "microbiology_results": results,
               "surgery_cohort": surgeries, "demographics": demo, "prior_inpatient_exposure": prior,
               "diagnoses": diag, "problems": problems, "prescriptions": rx}
+    tables["qa_flowchart_sql"] = _sql_flowchart(pd.DataFrame(surgeries), pd.DataFrame(spell_micro))
     frames = {}
     for name, rows in tables.items():
         df = pd.DataFrame(rows)
         frames[name] = df
         df.rename(columns=str.upper).to_csv(out_dir / f"{name}.csv", index=False)
     return frames
+
+
+def _sql_flowchart(surgeries: pd.DataFrame, spell_micro: pd.DataFrame) -> list[dict]:
+    """Rows of qa_flowchart_sql.csv (09_qa.sql: AT_QA_FLOWCHART), consistent with the other tables.
+
+    Step 3 counts spell_microbiology exactly, as the real SQL does; steps 1-2 add
+    admissions that have no eligible culture or an emergency procedure.
+    """
+    def n(df: pd.DataFrame) -> tuple[int, int]:
+        return len(df[["subject", "spell_identifier"]].drop_duplicates()), df["subject"].nunique()
+
+    adm2, pat2 = n(surgeries)
+    adm3, pat3 = n(spell_micro)
+    events2 = surgeries["surgery_event_id"].nunique()
+    return [
+        dict(step=1, description="Adult elective admissions with >=1 surgery in window", n_admissions=adm2 + 40,
+             n_patients=pat2 + 30, n_surgery_events=events2 + 45, n_cultures=None),
+        dict(step=2, description="After excluding surgery events with an emergency procedure", n_admissions=adm2,
+             n_patients=pat2, n_surgery_events=events2, n_cultures=None),
+        dict(step=3, description="Admissions with >=1 culture of an eligible organism", n_admissions=adm3,
+             n_patients=pat3, n_surgery_events=None, n_cultures=len(spell_micro)),
+        dict(step=31, description="  of which culture has AST info or an ESBL statement (informational)",
+             n_admissions=adm3 - 2, n_patients=pat3 - 2, n_surgery_events=None, n_cultures=len(spell_micro) - 3),
+    ]
 
 
 if __name__ == "__main__":

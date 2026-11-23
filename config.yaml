@@ -324,6 +324,11 @@ table1:
     - metastatic_solid_tumor
     - aids_hiv
 
+# --- Cohort flow diagram (esbl_rf.cohort_derivation.build_flowchart) ----
+flowchart:
+  sql_link_step: 3               # SQL step whose cohort is spell_microbiology.csv (Python's first step)
+  sql_informational_steps: [31]  # "of which" rows: shown, but not part of the exclusion chain
+
 # --- Charlson Comorbidity Index (comorbidicare) -------------------------
 cci:
   cutoff: admission              # evidence strictly before admission

@@ -28,7 +28,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     for run in STEPS.values():
         run(run_cfg)
     interim = run_cfg["paths"]["interim_dir"]
-    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "cohort_derivation"):
+    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "cohort_derivation", "flowchart"):
         assert (interim / f"{name}.csv").is_file(), name
 
     com = pd.read_csv(interim / "episode_comorbidity.csv")
@@ -48,6 +48,12 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     steps = derivation_table(run_cfg)
     assert steps["n_patients"].is_monotonic_decreasing
     assert steps["step"].iloc[0] == "samples collected in infection spells"
+    assert steps["n_esbl_pos"].iloc[-1] > 0
+
+    flow = pd.read_csv(interim / "flowchart.csv")
+    assert list(flow["source"].unique()) == ["sql", "python"]
+    assert len(flow) == 4 + len(steps)
+    assert flow["n_episodes"].iloc[-1] == len(out)
 
 
 def test_steps_can_be_rerun_from_checkpoints(run_cfg):

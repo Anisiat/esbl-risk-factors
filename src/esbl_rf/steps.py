@@ -11,7 +11,7 @@ import logging
 
 import pandas as pd
 
-from esbl_rf.cohort_derivation import record_step
+from esbl_rf.cohort_derivation import build_flowchart, derivation_table, record_step
 from esbl_rf.comorbidity import add_comorbidities
 from esbl_rf.demographics import attach_demographics, clean_demographics, set_sparse_ethnicity_missing
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
@@ -26,7 +26,7 @@ from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeri
 log = logging.getLogger(__name__)
 
 LABELLED, ELIGIBLE, EPISODES, EXPOSURES = "microbiology_labelled", "eligible_samples", "episodes", "episode_exposures"
-COMORBIDITY = "episode_comorbidity"
+COMORBIDITY, FLOWCHART = "episode_comorbidity", "flowchart"
 EPISODE_DATES = ["admission_date", "discharge_date", "surgery_start_dt", "surgery_stop_dt", "first_culture_dt", "last_culture_dt"]
 
 
@@ -107,9 +107,9 @@ def run_episodes(cfg: dict) -> pd.DataFrame:
     record_step(cfg, "infection episodes", samples, episode_col="infection_id")
     episodes = aggregate_episodes(samples, cfg)
     episodes = exclude_episodes_without_status(episodes, cfg)
-    record_step(cfg, "episodes with an ESBL status", episodes, episode_col="infection_id")
+    record_step(cfg, "episodes with an ESBL status", episodes, episode_col="infection_id", esbl_col=status_col)
     episodes = exclude_other_site_episodes(episodes, cfg)
-    record_step(cfg, "episodes with a study specimen site", episodes, episode_col="infection_id")
+    record_step(cfg, "episodes with a study specimen site", episodes, episode_col="infection_id", esbl_col=status_col)
 
     assert episodes["infection_id"].is_unique, "run_episodes: infection_id is not unique"
     assert episodes[status_col].isin([0, 1]).all(), "run_episodes: outcome must be 0 or 1 in every episode"
@@ -162,5 +162,17 @@ def run_comorbidity(cfg: dict) -> pd.DataFrame:
     return episodes
 
 
+def run_flowchart(cfg: dict) -> pd.DataFrame:
+    """Full cohort flow diagram: SQL steps (``qa_flowchart_sql.csv``) then the Python derivation log.
+
+    Grain: one row per flowchart box. Unsuppressed; the export step suppresses it.
+    """
+    sql_flow = read_raw(cfg, "qa_flowchart_sql")
+    flowchart = build_flowchart(sql_flow, derivation_table(cfg), cfg)
+    write_checkpoint(flowchart, cfg, FLOWCHART)
+    return flowchart
+
+
 # Order matters: each step reads the checkpoint of an earlier one.
-STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures, "comorbidity": run_comorbidity}
+STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures,
+         "comorbidity": run_comorbidity, "flowchart": run_flowchart}

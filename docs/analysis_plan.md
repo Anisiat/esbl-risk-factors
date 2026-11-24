@@ -225,6 +225,11 @@ multivariable model).
    [IQR] for continuous variables; n (%) for categorical variables.
    Descriptive only: no p-values (decided 2026-11-13). Missing column shown.
    LOS and mortality are reported for the admission linked to each episode.
+   Computed as numbers in `esbl_rf.tables` (counts, denominators, median and
+   quartiles; the manuscript used `tableone`) so the export step can suppress
+   counts before formatting. Percentages use non-missing episodes; binary flags
+   show the episodes with the flag. Mixed ethnicity is checked here: the run log
+   warns about any categorical level with fewer than 30 episodes.
 2. **Univariable:** logistic regression per variable; crude OR (95% CI).
 3. **Variable selection:** p < 0.20 or clinically important (prespecified
    list in `config.yaml`: age, sex, prior ESBL, specialty, prophylaxis,
@@ -242,7 +247,8 @@ multivariable model).
    complete-case loss per variable.
 8. **Diagnostics:** EPV overall; VIFs for all model terms (flag > 5);
    sparse categories collapsed per `config.yaml` with the collapse logged.
-9. **Supplementary (Table S2):** postoperative sampling by specialty across
+9. **Supplementary (Table S2)** (deferred, decided 2026-11-24: needs a new SQL
+   export of all elective surgery events and all non-screening samples): postoperative sampling by specialty across
    all included elective surgery events. Per surgery event, the observation
    window runs from surgery start to the next surgery start within the same
    admission, or to the end of the discharge day. Report % of events with ≥1
@@ -341,6 +347,8 @@ VIF, and the variables dropped or collapsed.
     become missing. Groups with fewer than 30 episodes are merged into Other,
     counted over analysed episodes (decided 2026-11-23; replaces "set to
     missing"; the manuscript counted over all patients).
+    Ethnicity "not stated" / "not known" is missing, as in the manuscript's
+    Table 1 and model code (decided 2026-11-24).
     Sex is `female` / `male`; "unspecified" and "not known" become missing.
     `subject` must be unique in the demographics table.
 19. A&E (emergency) and outpatient exposures and colonisation are dropped; only

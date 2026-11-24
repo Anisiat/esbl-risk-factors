@@ -25,7 +25,8 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "columns": ("subject", "spell", "admission", "discharge", "collect", "surgery_start",
                 "surgery_stop", "surgery_anchor", "procedure", "culture_type", "site_group", "tfc_desc", "tfc_group", "organism", "culture_code", "site", "surgery_columns",
                 "sample_key", "outcome"),
-    "table1": ("columns", "categorical", "nonnormal", "supplementary_conditions"),
+    "table1": ("blocks", "categorical", "binary", "supplementary_conditions"),
+    "labels": ("groups", "variables", "levels"),
     "antibiotics": ("medication_col", "route_col", "time_col", "non_antibiotic_suffixes", "exclude", "keep",
                     "therapeutic_agents"),
     "prophylaxis": ("iv_routes", "combine_minutes", "agent_classes", "group_labels"),
@@ -104,13 +105,19 @@ def _check_values(cfg: dict) -> list[str]:
         problems.append(f"sites.hierarchy has label(s) with no group: {unknown}")
 
     table1 = cfg["table1"]
-    for key in ("categorical", "nonnormal"):
-        extra = sorted(set(table1[key]) - set(table1["columns"]))
+    listed = [c for block in table1["blocks"].values() for c in block]
+    dupes = sorted({c for c in listed if listed.count(c) > 1})
+    if dupes:
+        problems.append(f"table1.blocks lists column(s) more than once: {dupes}")
+    for key in ("categorical", "binary"):
+        extra = sorted(set(table1[key]) - set(listed))
         if extra:
-            problems.append(f"table1.{key} has columns not in table1.columns: {extra}")
-    overlap = sorted(set(table1["categorical"]) & set(table1["nonnormal"]))
+            problems.append(f"table1.{key} has columns not in table1.blocks: {extra}")
+    overlap = sorted(set(table1["categorical"]) & set(table1["binary"]))
     if overlap:
-        problems.append(f"table1.categorical and table1.nonnormal overlap: {overlap}")
+        problems.append(f"table1.categorical and table1.binary overlap: {overlap}")
+    if set(cfg["labels"]["groups"]) != {"overall", "esbl_pos", "non_esbl"}:
+        problems.append("labels.groups must have exactly the keys overall, esbl_pos, non_esbl")
 
     lr = cfg["logistic_regression"]
     predictors = lr["predictors"]

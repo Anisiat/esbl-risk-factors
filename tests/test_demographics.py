@@ -17,7 +17,7 @@ def test_groups_ethnicity_and_gender(cfg):
         ("b", "Indian", "Male", None),
         ("c", "Not Stated", "Unspecified", None),
     ]), cfg)
-    assert out.set_index("subject")["ethnicity_desc"].to_dict() == {"a": "white", "b": "asian", "c": "other_unknown"}
+    assert out.set_index("subject")["ethnicity_desc"].fillna("missing").to_dict() == {"a": "white", "b": "asian", "c": "missing"}
     assert out.set_index("subject")["gender"].fillna("missing").to_dict() == {"a": "female", "b": "male", "c": "missing"}
 
 

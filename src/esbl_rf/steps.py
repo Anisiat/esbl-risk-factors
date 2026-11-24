@@ -24,11 +24,13 @@ from esbl_rf.io import read_checkpoint, read_lookup, read_raw, write_checkpoint
 from esbl_rf.outcome import build_ast_rules, label_esbl_status
 from esbl_rf.sites import group_specimen_site
 from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeries, map_specialty
+from esbl_rf.tables import log_sparse_levels, summarise_table, supplement_blocks, table1_blocks
 
 log = logging.getLogger(__name__)
 
 LABELLED, ELIGIBLE, EPISODES, EXPOSURES = "microbiology_labelled", "eligible_samples", "episodes", "episode_exposures"
 COMORBIDITY, CLINICAL, FLOWCHART = "episode_comorbidity", "episode_clinical", "flowchart"
+TABLE1, TABLE1_SUPP = "table1", "table1_supplement"
 EPISODE_DATES = ["admission_date", "discharge_date", "surgery_start_dt", "surgery_stop_dt", "first_culture_dt", "last_culture_dt"]
 
 
@@ -207,6 +209,23 @@ def run_flowchart(cfg: dict) -> pd.DataFrame:
     return flowchart
 
 
+def run_table1(cfg: dict) -> pd.DataFrame:
+    """Table 1 and its supplement (all 17 Charlson conditions) by ESBL status, as unsuppressed numbers.
+
+    Grain: one row per table row (see ``esbl_rf.tables.summarise_table``). The
+    export step suppresses and formats them.
+    """
+    episodes = _status_as_int(read_checkpoint(cfg, CLINICAL), cfg)
+    table1 = summarise_table(episodes, table1_blocks(cfg), cfg)
+    log_sparse_levels(table1, cfg)
+    supplement = summarise_table(episodes, supplement_blocks(cfg), cfg)
+    for name, table in ((TABLE1, table1), (TABLE1_SUPP, supplement)):
+        assert table.loc[0, "overall_n"] == len(episodes), f"run_table1: {name} N does not match the episodes"
+        write_checkpoint(table, cfg, name)
+    return table1
+
+
 # Order matters: each step reads the checkpoint of an earlier one.
 STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures,
-         "comorbidity": run_comorbidity, "clinical": run_clinical, "flowchart": run_flowchart}
+         "comorbidity": run_comorbidity, "clinical": run_clinical, "flowchart": run_flowchart,
+         "table1": run_table1}

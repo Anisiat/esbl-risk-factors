@@ -115,10 +115,12 @@ demographics:
     "other mixed": mixed
     "other - any other ethnic group": other
     "any other ethnic group": other
-    "other - not stated": other_unknown
-    "other - not known": other_unknown
-    "not stated": other_unknown
-    "not known": other_unknown
+    # Not stated / not known = missing, as in the manuscript (its Table 1 and model code
+    # turned other_unknown into missing).
+    "other - not stated": null
+    "other - not known": null
+    "not stated": null
+    "not known": null
   ethnicity_min_count: 30
   ethnicity_sparse_into: other
   gender_groups:                 # lower-cased gender_desc -> level; null = deliberately missing
@@ -289,19 +291,62 @@ columns:
 
 # --- Table 1 ------------------------------------------------------------
 table1:
-  columns:
-    - esbl_status
-    - age_at_admission
+  # Row blocks in the order of analysis_plan section 9. Episode level, by ESBL status
+  # (columns.outcome). Descriptive only: no p-values. Every variable not listed
+  # under categorical or binary is continuous and shown as median [IQR]
+  # (CHANGE vs manuscript for some, decided 2026-11-13: skewed counts/durations).
+  blocks:
+    Patient characteristics:
+      - age_at_admission
+      - gender
+      - ethnicity_desc               # check the size of Mixed here (decided 2026-11-23)
+      - imd_decile
+    Surgical characteristics:
+      - tfc
+      - n_surgeries
+      - surgery_length
+      - min_days_from_surgery_to_infection
+      - prophylaxis_group
+      - delta_hours_prophylaxis
+    Clinical history and comorbidities:
+      - cci_score
+      - cci_group
+      # Subset of the 17 Charlson flags (decided 2026-11-13); all 17 are in
+      # supplementary_conditions below.
+      - malignancy
+      - metastatic_solid_tumor
+      - diabetes_without_complication
+      - diabetes_with_complication
+      - chronic_pulmonary_disease
+      - renal_disease
+      - congestive_heart_failure
+      - inpatient_exposure_90d
+      - past_abx
+      - prior_positive_esbl
+    Infection characteristics:
+      - site
+      - organism_bug
+      - n_sites
+      - n_samples
+      - culture_span_days
+      - days_from_admission_to_first_culture
+    Pathology and vitals:
+      - temperature
+      - crp
+    Clinical outcomes:
+      - length_of_stay_days
+      - in_hosp_mortality
+
+  categorical:                   # n (%) for every level
     - gender
     - ethnicity_desc
-    - imd_decile
-
     - tfc
-
-    - cci_score
+    - prophylaxis_group
     - cci_group
-    # Subset of the 17 Charlson flags for the main table (decided 2026-11-13);
-    # the full list is in supplementary_conditions below.
+    - site
+    - organism_bug
+
+  binary:                        # 0/1 flags: n (%) with the flag
     - malignancy
     - metastatic_solid_tumor
     - diabetes_without_complication
@@ -309,70 +354,12 @@ table1:
     - chronic_pulmonary_disease
     - renal_disease
     - congestive_heart_failure
-
     - inpatient_exposure_90d
-
-    - n_surgeries
-    - surgery_length
-    - min_days_from_surgery_to_infection
-
-    - prophylaxis_group
-    - delta_hours_prophylaxis
-
-    - site
-    - n_sites
-    - organism_bug
-    - n_samples
-    - culture_span_days
-    - prior_positive_esbl
-
-    - temperature
-    - crp
-
     - past_abx
-
-    - length_of_stay_days
-    - in_hosp_mortality
-
-  categorical:
-    - tfc
-    - gender
-    - ethnicity_desc
-    - site
-    - organism_bug
-    - past_abx
-    - prophylaxis_group
-    - cci_group
-    - malignancy
-    - metastatic_solid_tumor
-    - diabetes_without_complication
-    - diabetes_with_complication
-    - chronic_pulmonary_disease
-    - renal_disease
-    - congestive_heart_failure
-    - inpatient_exposure_90d
-    - in_hosp_mortality
     - prior_positive_esbl
-
-  nonnormal:                     # shown as median [IQR]
-    - cci_score
-    - age_at_admission
-    - imd_decile
-    - length_of_stay_days
-    - n_surgeries
-    - surgery_length
-    - min_days_from_surgery_to_infection
-    - temperature
-    - crp
-    # CHANGE vs manuscript (decided 2026-11-13): skewed counts/durations,
-    # previously shown as mean (SD).
-    - delta_hours_prophylaxis
-    - n_sites
-    - n_samples
-    - culture_span_days
+    - in_hosp_mortality
 
   # All 17 Charlson flags (comorbidicare names) for the supplementary table.
-  # Descriptive only: no p-values anywhere in Table 1 or its supplement.
   supplementary_conditions:
     - myocardial_infarction
     - congestive_heart_failure
@@ -391,6 +378,92 @@ table1:
     - moderate_or_severe_liver_disease
     - metastatic_solid_tumor
     - aids_hiv
+
+# --- Display labels for exported tables and the forest plot ------------
+# Unlisted names are shown as they are.
+labels:
+  groups:
+    overall: Overall
+    esbl_pos: ESBL-positive
+    non_esbl: Non-ESBL
+  variables:
+    age_at_admission: Age, years
+    gender: Sex
+    ethnicity_desc: Ethnicity
+    imd_decile: IMD decile
+    tfc: Surgical specialty
+    n_surgeries: Surgeries in the admission before infection
+    surgery_length: Surgery duration, hours
+    min_days_from_surgery_to_infection: Days from surgery to infection
+    prophylaxis_group: Perioperative prophylaxis
+    delta_hours_prophylaxis: Prophylaxis dose before surgery start, hours
+    cci_score: Charlson Comorbidity Index
+    cci_group: Charlson Comorbidity Index group
+    malignancy: Malignancy
+    metastatic_solid_tumor: Metastatic solid tumour
+    diabetes_without_complication: Diabetes without complication
+    diabetes_with_complication: Diabetes with complication
+    chronic_pulmonary_disease: Chronic pulmonary disease
+    renal_disease: Renal disease
+    congestive_heart_failure: Congestive heart failure
+    myocardial_infarction: Myocardial infarction
+    peripheral_vascular_disease: Peripheral vascular disease
+    cerebrovascular_disease: Cerebrovascular disease
+    dementia: Dementia
+    rheumatic_disease: Rheumatic disease
+    peptic_ulcer_disease: Peptic ulcer disease
+    mild_liver_disease: Mild liver disease
+    hemiplegia_or_paraplegia: Hemiplegia or paraplegia
+    moderate_or_severe_liver_disease: Moderate or severe liver disease
+    aids_hiv: AIDS/HIV
+    inpatient_exposure_90d: Hospital admission in previous 90 days
+    past_abx: Antibiotics in previous 90 days
+    prior_positive_esbl: Prior ESBL-positive culture
+    site: Specimen site
+    organism_bug: Organism
+    n_sites: Specimen sites per episode
+    n_samples: Samples per episode
+    culture_span_days: Episode span, days
+    days_from_admission_to_first_culture: Days from admission to first culture
+    temperature: Temperature, °C
+    crp: CRP, mg/L
+    length_of_stay_days: Length of stay, days
+    in_hosp_mortality: In-hospital death
+  levels:
+    female: Female
+    male: Male
+    white: White
+    asian: Asian
+    black: Black
+    mixed: Mixed
+    other: Other
+    general_surgery: General surgery
+    abdominal_gi: Abdominal/GI
+    cardiothoracic: Cardiothoracic
+    gynaecological_oncology: Gynaecological oncology
+    neuro_ent: Neurosurgery/ENT
+    obs_gynae: Obstetrics/Gynaecology
+    ortho_plastics: Orthopaedics/Plastics
+    uro_nephro: Urology/Nephrology
+    vascular: Vascular
+    escherichia coli: E. coli
+    klebsiella pneumoniae: K. pneumoniae
+    klebsiella oxytoca: K. oxytoca
+    proteus mirabilis: P. mirabilis
+    blood: Blood
+    drain: Drain
+    sputum: Sputum
+    tips_devices: Tips/devices
+    tissue/biopsy: Tissue/biopsy
+    urine: Urine
+    wound: Wound
+    "cefuroxime +/- metronidazole": Cefuroxime ± metronidazole
+    "cefuroxime +/- metronidazole + aminoglycoside": Cefuroxime ± metronidazole + aminoglycoside
+    co-amoxiclav-based: Co-amoxiclav-based
+    aminoglycoside-based: Aminoglycoside-based
+    limited_enterobact_activity: Limited Enterobacterales activity
+    other_broad_spectrum_gram_negative_active: Broad-spectrum Gram-negative active
+    no_prophylaxis: No prophylaxis
 
 # --- Cohort flow diagram (esbl_rf.cohort_derivation.build_flowchart) ----
 flowchart:

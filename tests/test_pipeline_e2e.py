@@ -28,7 +28,8 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     for run in STEPS.values():
         run(run_cfg)
     interim = run_cfg["paths"]["interim_dir"]
-    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "episode_clinical", "cohort_derivation", "flowchart"):
+    for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "episode_clinical", "cohort_derivation", "flowchart",
+                 "table1", "table1_supplement"):
         assert (interim / f"{name}.csv").is_file(), name
 
     com = pd.read_csv(interim / "episode_comorbidity.csv")
@@ -60,6 +61,14 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert steps["n_patients"].is_monotonic_decreasing
     assert steps["step"].iloc[0] == "samples collected in infection spells"
     assert steps["n_esbl_pos"].iloc[-1] > 0
+
+    t1 = pd.read_csv(interim / "table1.csv")
+    assert t1.loc[0, "overall_n"] == len(clin)
+    assert (t1["esbl_pos_n"].fillna(0) + t1["non_esbl_n"].fillna(0) == t1["overall_n"].fillna(0)).all()
+    listed = {c for cols in run_cfg["table1"]["blocks"].values() for c in cols}
+    assert set(t1["variable"]) == listed | {"N"}
+    supp = pd.read_csv(interim / "table1_supplement.csv")
+    assert set(supp["variable"]) - {"N"} == set(run_cfg["table1"]["supplementary_conditions"])
 
     flow = pd.read_csv(interim / "flowchart.csv")
     assert list(flow["source"].unique()) == ["sql", "python"]

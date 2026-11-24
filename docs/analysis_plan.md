@@ -277,6 +277,19 @@ admissions by specialty (descriptive; uses the step 1 denominator).
 All outputs go to `outputs/export/`, with small-number suppression applied
 (see CLAUDE.md).
 
+Disclosure control (`esbl_rf.suppression`, decided 2026-11-24): counts 1–4 are
+shown as `<5` with their percentage hidden; zero is shown. Secondary
+suppression (`*`) hides one more cell wherever a hidden count could be worked
+out from a row or column total (Table 1 rows: overall = ESBL-positive +
+non-ESBL; levels of a variable with its missing count). Flowchart and
+complete-case loss counts are rounded to the nearest 5 (exclusions rounded
+separately), because any exclusion is the difference of two shown boxes.
+Medians are not shown for groups with fewer than 5 values. Written by the last
+pipeline step (`run_export`), the only writer to `outputs/export/`: CSV per
+table, all tables in `tables.xlsx`, forest plot as PDF and 300 dpi PNG.
+Formatted .docx is not produced (python-docx is not in the SDE pins; decided
+2026-11-24).
+
 **Flowchart:** `flowchart_counts.csv`, one row per box: SQL steps
 (`qa_flowchart_sql.csv`) then Python steps, with admissions, patients,
 surgery events, samples, episodes, ESBL-positive episodes and the number
@@ -289,7 +302,8 @@ characteristics, Clinical history/comorbidities (incl. CCI), Infection
 characteristics (site, organism), Pathology and vitals, Clinical outcomes.
 
 **Table 2:** columns Variable | Univariable OR (95% CI) | Multivariable
-clustered aOR (95% CI) | Multivariable first-episode aOR (95% CI). Same row
+clustered aOR (95% CI) | Multivariable first-episode aOR (95% CI). Each OR
+column is followed by its p-value. Same row
 blocks; "–" for variables not in the model; reference categories in a
 footnote.
 

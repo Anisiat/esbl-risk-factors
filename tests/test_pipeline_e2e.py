@@ -18,6 +18,7 @@ def run_cfg(cfg, tmp_path):
     raw = tmp_path / "raw"
     generate(raw, n_patients=400, seed=3)
     cfg["paths"]["raw_dir"], cfg["paths"]["interim_dir"] = raw, tmp_path / "interim"
+    cfg["paths"]["export_dir"] = tmp_path / "export"     # never the real outputs/export
     cfg["raw_csv"] = {name: raw / path.name for name, path in cfg["raw_csv"].items()}
     cfg["demographics"]["ethnicity_min_count"] = 5
     return cfg
@@ -82,6 +83,17 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert not {"temperature", "crp", "days_from_admission_to_first_culture"} & set(sel["variable"])
     sub = pd.read_csv(interim / "model_subgroups.csv")
     assert set(sub["subgroup"]) == set(run_cfg["logistic_regression"]["subgroups"])
+
+    export = run_cfg["paths"]["export_dir"]
+    for name in ("flowchart_counts.csv", "table1.csv", "table1_supplement.csv", "table2.csv",
+                 "table_s3_subgroups.csv", "model_diagnostics.csv", "tables.xlsx", "figure_forest.pdf",
+                 "figure_forest.png"):
+        assert (export / name).is_file(), name
+    for csv in export.glob("*.csv"):
+        exported = pd.read_csv(csv, dtype=str, keep_default_na=False)
+        assert not {"subject", "infection_id"} & set(exported.columns), csv.name
+    t2 = pd.read_csv(export / "table2.csv", dtype=str, keep_default_na=False)
+    assert t2["Univariable OR (95% CI)"].str.match(r"^$|^\d+\.\d\d \(").all()
 
     flow = pd.read_csv(interim / "flowchart.csv")
     assert list(flow["source"].unique()) == ["sql", "python"]

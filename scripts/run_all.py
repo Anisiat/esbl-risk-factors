@@ -30,7 +30,7 @@ from esbl_rf.cohort_derivation import reset_derivation  # noqa: E402
 from esbl_rf.config import load_config  # noqa: E402
 from esbl_rf.steps import STEPS  # noqa: E402
 
-PACKAGES = ["pandas", "numpy", "pyyaml", "statsmodels", "comorbidicare"]
+PACKAGES = ["pandas", "numpy", "pyyaml", "statsmodels", "comorbidicare", "matplotlib", "openpyxl"]
 
 
 def git_hash() -> str:

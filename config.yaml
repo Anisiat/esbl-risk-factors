@@ -139,6 +139,7 @@ exposures:
     prior_discharge: prior_discharge_d
 
 suppression_threshold: 5        # counts below this are shown as <5
+rounding_base: 5                # flowchart and complete-case counts rounded to this (decided 2026-11-24)
 
 # Antibiotic administrations (esbl_rf.antibiotics). Lists ported from the manuscript's
 # configs/antibiotics.yaml; names are lower-cased before matching.

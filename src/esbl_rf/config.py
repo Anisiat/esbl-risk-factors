@@ -49,8 +49,9 @@ def _check_structure(cfg: dict) -> list[str]:
             problems.append(f"missing section '{section}'")
             continue
         problems += [f"missing key '{section}.{k}'" for k in keys if k not in cfg[section]]
-    if "suppression_threshold" not in cfg:
-        problems.append("missing key 'suppression_threshold'")
+    for key in ("suppression_threshold", "rounding_base"):
+        if key not in cfg:
+            problems.append(f"missing key '{key}'")
     return problems
 
 
@@ -80,6 +81,8 @@ def _check_values(cfg: dict) -> list[str]:
                         "prophylaxis.group_labels")
     if cfg["suppression_threshold"] < 1:
         problems.append("suppression_threshold must be at least 1")
+    if cfg["rounding_base"] < 1:
+        problems.append("rounding_base must be at least 1")
 
     cci = cfg["cci"]
     if cci["cutoff"] not in ("admission", "discharge"):

@@ -17,6 +17,8 @@ from esbl_rf.cohort_derivation import build_flowchart, derivation_table, record_
 from esbl_rf.comorbidity import add_comorbidities
 from esbl_rf.demographics import attach_demographics, clean_demographics, merge_sparse_ethnicity
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
+from esbl_rf.export import (diagnostics_display, flowchart_display, forest_plot, subgroup_display, table1_display,
+                             table2_display, write_tables)
 from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status,
                               exclude_other_site_episodes)
 from esbl_rf.exposures import flag_prior_esbl, flag_prior_inpatient
@@ -267,7 +269,35 @@ def run_models(cfg: dict) -> pd.DataFrame:
     return outputs["model_terms"]
 
 
+def run_export(cfg: dict) -> pd.DataFrame:
+    """Suppress, format and write every aggregate output to ``paths.export_dir`` (the last step).
+
+    Reads aggregate checkpoints only (flowchart, Table 1, model tables), never
+    episode-level data. Returns a manifest: one row per file written.
+    """
+    read = lambda name: read_checkpoint(cfg, name)  # noqa: E731
+    models = {name: read(name) for name in MODEL_OUTPUTS}
+    tables = {
+        "flowchart_counts": flowchart_display(read(FLOWCHART), cfg),
+        "table1": table1_display(read(TABLE1), cfg),
+        "table1_supplement": table1_display(read(TABLE1_SUPP), cfg),
+        "table2": table2_display(models["model_univariable"], models["model_terms"], models["model_selection"],
+                                 models["model_diagnostics"], cfg),
+        "table_s3_subgroups": subgroup_display(models["model_subgroups"], cfg),
+    }
+    diag = diagnostics_display(models["model_diagnostics"], models["model_vif"], models["model_selection"],
+                               models["model_complete_case"], models["model_merged_levels"], cfg)
+    tables.update({name: (df, []) for name, df in diag.items()})
+    export_dir = cfg["paths"]["export_dir"]
+    written = write_tables(tables, export_dir)
+    written += forest_plot(models["model_terms"], cfg, export_dir / "figure_forest")
+    manifest = pd.DataFrame({"file": [p.name for p in written]})
+    log.info("run_export: wrote %d file(s) to %s: %s", len(written), export_dir, manifest["file"].tolist())
+    return manifest
+
+
 # Order matters: each step reads the checkpoint of an earlier one.
 STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures,
          "comorbidity": run_comorbidity, "clinical": run_clinical, "flowchart": run_flowchart,
-         "table1": run_table1, "models": run_models}
+         "table1": run_table1, "models": run_models,
+         "export": run_export}

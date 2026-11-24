@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from esbl_rf.cohort_derivation import derivation_table, reset_derivation
-from esbl_rf.steps import STEPS
+from esbl_rf.steps import MODEL_OUTPUTS, STEPS
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "synthetic"))
 from generate import generate  # noqa: E402
@@ -16,7 +16,7 @@ from generate import generate  # noqa: E402
 def run_cfg(cfg, tmp_path):
     """The real config, pointed at a temporary folder holding synthetic raw CSVs."""
     raw = tmp_path / "raw"
-    generate(raw, n_patients=120, seed=3)
+    generate(raw, n_patients=400, seed=3)
     cfg["paths"]["raw_dir"], cfg["paths"]["interim_dir"] = raw, tmp_path / "interim"
     cfg["raw_csv"] = {name: raw / path.name for name, path in cfg["raw_csv"].items()}
     cfg["demographics"]["ethnicity_min_count"] = 5
@@ -29,7 +29,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
         run(run_cfg)
     interim = run_cfg["paths"]["interim_dir"]
     for name in ("microbiology_labelled", "eligible_samples", "episodes", "episode_exposures", "episode_comorbidity", "episode_clinical", "cohort_derivation", "flowchart",
-                 "table1", "table1_supplement"):
+                 "table1", "table1_supplement", *MODEL_OUTPUTS):
         assert (interim / f"{name}.csv").is_file(), name
 
     com = pd.read_csv(interim / "episode_comorbidity.csv")
@@ -69,6 +69,19 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert set(t1["variable"]) == listed | {"N"}
     supp = pd.read_csv(interim / "table1_supplement.csv")
     assert set(supp["variable"]) - {"N"} == set(run_cfg["table1"]["supplementary_conditions"])
+
+    terms = pd.read_csv(interim / "model_terms.csv")
+    assert set(terms["model"]) == {"primary", "first_episode"}
+    assert terms["odds_ratio"].gt(0).all() and (terms["ci_lower"] <= terms["ci_upper"]).all()
+    diag = pd.read_csv(interim / "model_diagnostics.csv").set_index("model")
+    assert diag.loc["first_episode", "n_used"] <= diag.loc["first_episode", "n_clusters"]
+    assert diag.loc["primary", "n_used"] <= len(clin)
+    sel = pd.read_csv(interim / "model_selection.csv")
+    chosen = set(sel.loc[sel["selected"], "variable"])
+    assert set(terms["variable"]) == chosen
+    assert not {"temperature", "crp", "days_from_admission_to_first_culture"} & set(sel["variable"])
+    sub = pd.read_csv(interim / "model_subgroups.csv")
+    assert set(sub["subgroup"]) == set(run_cfg["logistic_regression"]["subgroups"])
 
     flow = pd.read_csv(interim / "flowchart.csv")
     assert list(flow["source"].unique()) == ["sql", "python"]

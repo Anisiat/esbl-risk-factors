@@ -21,6 +21,8 @@ from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exc
                               exclude_other_site_episodes)
 from esbl_rf.exposures import flag_prior_esbl, flag_prior_inpatient
 from esbl_rf.io import read_checkpoint, read_lookup, read_raw, write_checkpoint
+from esbl_rf.models import (complete_case_loss, first_episode_per_patient, multivariable, prepare_model_data,
+                            select_predictors, subgroups, univariable)
 from esbl_rf.outcome import build_ast_rules, label_esbl_status
 from esbl_rf.sites import group_specimen_site
 from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeries, map_specialty
@@ -31,6 +33,8 @@ log = logging.getLogger(__name__)
 LABELLED, ELIGIBLE, EPISODES, EXPOSURES = "microbiology_labelled", "eligible_samples", "episodes", "episode_exposures"
 COMORBIDITY, CLINICAL, FLOWCHART = "episode_comorbidity", "episode_clinical", "flowchart"
 TABLE1, TABLE1_SUPP = "table1", "table1_supplement"
+MODEL_OUTPUTS = ("model_univariable", "model_selection", "model_terms", "model_diagnostics", "model_vif",
+                 "model_complete_case", "model_subgroups", "model_merged_levels")
 EPISODE_DATES = ["admission_date", "discharge_date", "surgery_start_dt", "surgery_stop_dt", "first_culture_dt", "last_culture_dt"]
 
 
@@ -225,7 +229,45 @@ def run_table1(cfg: dict) -> pd.DataFrame:
     return table1
 
 
+def run_models(cfg: dict) -> pd.DataFrame:
+    """Univariable screen, primary clustered model, first-episode sensitivity model and subgroups.
+
+    Grain of the input: one row per infection episode. Writes one checkpoint per
+    table in ``MODEL_OUTPUTS`` (unsuppressed; the export step formats and
+    suppresses them) and returns the multivariable terms.
+    """
+    lr = cfg["logistic_regression"]
+    episodes = _status_as_int(read_checkpoint(cfg, CLINICAL), cfg)
+    data, merged = prepare_model_data(episodes, cfg)
+    uni = univariable(data, cfg)
+    selection = select_predictors(uni, cfg)
+    chosen = selection.loc[selection["selected"], "variable"].tolist()
+
+    primary, primary_diag, primary_vif = multivariable(data, chosen, cfg, "primary", clustered=True)
+    first = first_episode_per_patient(data, cfg)
+    assert first[lr["cluster_col"]].is_unique, "run_models: first-episode data repeats a patient"
+    sens, sens_diag, sens_vif = multivariable(first, chosen, cfg, "first_episode", clustered=False)
+    assert primary_diag["n_used"] > 0 and sens_diag["n_used"] > 0, "run_models: a model used no episodes"
+    merged_text = "; ".join(f"{r.variable}: {r.level} -> {r.merged_into}" for r in merged.itertuples()) or None
+    diagnostics = pd.DataFrame([primary_diag, sens_diag]).assign(merged_levels=merged_text)
+
+    outputs = {
+        "model_univariable": uni,
+        "model_selection": selection,
+        "model_terms": pd.concat([primary, sens], ignore_index=True),
+        "model_diagnostics": diagnostics,
+        "model_vif": pd.concat([primary_vif, sens_vif], ignore_index=True),
+        "model_complete_case": complete_case_loss(data, chosen, cfg),
+        "model_subgroups": subgroups(data, chosen, cfg),
+        "model_merged_levels": merged,
+    }
+    assert set(outputs) == set(MODEL_OUTPUTS)
+    for name, table in outputs.items():
+        write_checkpoint(table, cfg, name)
+    return outputs["model_terms"]
+
+
 # Order matters: each step reads the checkpoint of an earlier one.
 STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures,
          "comorbidity": run_comorbidity, "clinical": run_clinical, "flowchart": run_flowchart,
-         "table1": run_table1}
+         "table1": run_table1, "models": run_models}

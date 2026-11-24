@@ -34,7 +34,9 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "mortality": ("discharge_method_col", "died_codes", "unknown_codes"),
     "flowchart": ("sql_link_step", "sql_informational_steps"),
     "cci": ("cutoff", "date_columns", "text_columns", "group_edges", "group_labels"),
-    "logistic_regression": ("cluster_col", "id_columns", "predictors", "reference_levels"),
+    "logistic_regression": ("cluster_col", "order_col", "predictors", "reference_levels", "screen_p",
+                            "clinically_important", "sparse", "vif_flag", "subgroups", "min_subgroup_epv",
+                            "stable_subgroup_epv"),
 }
 _PREDICTOR_TYPES = ("continuous", "binary", "categorical")
 
@@ -135,6 +137,18 @@ def _check_values(cfg: dict) -> list[str]:
         unset = sorted(set(predictors["categorical"]) - set(lr["reference_levels"]))
         if unset:
             problems.append(f"logistic_regression.reference_levels missing for categorical predictors: {unset}")
+        for key, values, allowed in (("clinically_important", lr["clinically_important"], flat),
+                                     ("subgroups", lr["subgroups"], predictors["categorical"]),
+                                     ("sparse.merge_into", lr["sparse"].get("merge_into", {}), predictors["categorical"])):
+            extra = sorted(set(values) - set(allowed))
+            if extra:
+                problems.append(f"logistic_regression.{key} has names that are not (categorical) predictors: {extra}")
+    if not 0 < lr["screen_p"] < 1:
+        problems.append("logistic_regression.screen_p must be between 0 and 1")
+    if not 0 < lr["min_subgroup_epv"] <= lr["stable_subgroup_epv"]:
+        problems.append("logistic_regression: need 0 < min_subgroup_epv <= stable_subgroup_epv")
+    if "min_events" not in lr["sparse"] or "merge_into" not in lr["sparse"]:
+        problems.append("logistic_regression.sparse needs min_events and merge_into")
     return problems
 
 

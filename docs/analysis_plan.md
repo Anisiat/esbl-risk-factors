@@ -234,10 +234,20 @@ multivariable model).
 3. **Variable selection:** p < 0.20 or clinically important (prespecified
    list in `config.yaml`: age, sex, prior ESBL, specialty, prophylaxis,
    organism, specimen site, CCI). Log the reason each variable was included.
+   Implementation (`esbl_rf.models`, decided 2026-11-24): univariable models
+   use patient-clustered SEs and the episodes with that variable recorded; a
+   variable is screened by one joint Wald test over all its levels (the
+   manuscript code used the smallest p-value of any level). Candidate
+   predictors are listed in `config.yaml: logistic_regression.predictors`;
+   `days_from_admission_to_first_culture` and
+   `min_days_from_surgery_to_infection` describe when the infection happened,
+   not a risk factor, so they are descriptive only (decided 2026-11-24). Sex is
+   a categorical predictor (reference female).
 4. **Primary model:** multivariable logistic regression, all episodes,
    cluster-robust SEs by patient (`statsmodels`, `cov_type="cluster"`).
 5. **Sensitivity:** same model, restricted to the first eligible episode per
-   patient.
+   patient (earliest first culture), chosen before complete-case
+   filtering; ordinary SEs (one episode per patient).
 6. **Exploratory subgroups:** by surgical specialty and by specimen site;
    report n, events and EPV per stratum; skip strata with EPV below
    `config.yaml: min_subgroup_epv` (5, decided 2026-11-23) and report them as
@@ -247,6 +257,11 @@ multivariable model).
    complete-case loss per variable.
 8. **Diagnostics:** EPV overall; VIFs for all model terms (flag > 5);
    sparse categories collapsed per `config.yaml` with the collapse logged.
+   Sparse rule (decided 2026-11-24): a non-reference level with fewer than 10
+   ESBL-positive or fewer than 10 non-ESBL episodes is merged into `other`
+   (`logistic_regression.sparse`), counted over all episodes before any model;
+   a sparse reference level stops the run.
+   VIFs are computed per design column (each dummy level).
 9. **Supplementary (Table S2)** (deferred, decided 2026-11-24: needs a new SQL
    export of all elective surgery events and all non-screening samples): postoperative sampling by specialty across
    all included elective surgery events. Per surgery event, the observation
@@ -374,3 +389,9 @@ VIF, and the variables dropped or collapsed.
 25. Models report odds ratios only: the manuscript code's train/test split,
     AUROC and bootstrap (prediction-model metrics) are dropped (decided
     2026-11-23).
+26. Models (decided 2026-11-24): joint Wald screening per variable; reference
+    levels must exist (the manuscript code dropped them with
+    `errors="ignore"`); constant columns stop the run instead of being dropped
+    silently; first episode chosen by date, not by sorting the episode id;
+    sparse levels merged into `other` by a fixed rule; the timing variables
+    are descriptive only.

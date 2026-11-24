@@ -483,27 +483,27 @@ cci:
   group_edges: [0, 1, 3]         # cci_group: 0 | 1-2 | >=3 (left-closed bins)
   group_labels: ["0", "1-2", ">=3"]
 
-# --- Logistic regression ------------------------------------------------
+# --- Logistic regression (esbl_rf.models) ---------------------------------
+# Analysis plan section 8. Odds ratios only (no prediction metrics, decided 2026-11-23).
 logistic_regression:
   cluster_col: subject           # patient-clustered standard errors
-  id_columns: [subject, infection_id, admission_date]
+  order_col: first_culture_dt    # "first episode per patient" = earliest first culture
 
+  # Candidate predictors (analysis plan section 7). Temperature and CRP (decided
+  # 2026-11-23) and the timing variables days_from_admission_to_first_culture and
+  # min_days_from_surgery_to_infection (decided 2026-11-24) are descriptive only.
   predictors:
     continuous:
-      - age_at_admission
-      - imd_decile
-      - days_from_admission_to_first_culture
-      - surgery_length
-      - min_days_from_surgery_to_infection
+      - age_at_admission         # per year
+      - imd_decile               # per decile
+      - surgery_length           # per hour
       - cci_score                # CHANGE vs manuscript: replaces the individual comorbidities
-
     binary:
-      - gender
       - past_abx
       - inpatient_exposure_90d
       - prior_positive_esbl
-
     categorical:
+      - gender
       - ethnicity_desc
       - organism_bug
       - site
@@ -511,8 +511,41 @@ logistic_regression:
       - prophylaxis_group
 
   reference_levels:
+    gender: female
     site: blood
     organism_bug: escherichia coli
     ethnicity_desc: white
     tfc: general_surgery
     prophylaxis_group: "cefuroxime +/- metronidazole"
+
+  # Variable selection: univariable p < screen_p (joint Wald test over all levels
+  # of a variable) or clinically important (prespecified, analysis plan 8.3).
+  screen_p: 0.20
+  clinically_important:
+    - age_at_admission
+    - gender
+    - prior_positive_esbl
+    - tfc
+    - prophylaxis_group
+    - organism_bug
+    - site
+    - cci_score
+
+  # Sparse levels (decided 2026-11-24): a non-reference level with fewer than
+  # min_events ESBL-positive or fewer than min_events non-ESBL episodes is merged
+  # into merge_into[variable] before any model. Logged and listed in the diagnostics.
+  sparse:
+    min_events: 10
+    merge_into:
+      ethnicity_desc: other
+      organism_bug: other
+      site: other
+      tfc: other
+      prophylaxis_group: other
+
+  vif_flag: 5                    # VIFs above this are flagged
+
+  # Exploratory subgroups (analysis plan 8.6): the primary model within each level.
+  subgroups: [tfc, site]
+  min_subgroup_epv: 5            # below: not estimated (decided 2026-11-23)
+  stable_subgroup_epv: 10        # 5 to <10: estimated, flagged as unstable

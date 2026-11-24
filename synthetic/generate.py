@@ -59,10 +59,11 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
         organism = ORGANISMS[int(rng.integers(0, 4))]
         site = SITES[int(rng.integers(0, len(SITES)))]
         status = ["esbl", "non", "unknown"][int(rng.choice(3, p=[0.3, 0.6, 0.1]))]
+        surg_stop = surg_start + pd.Timedelta(minutes=int(rng.integers(45, 420)))
 
         surgeries.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=f"e{i:03d}",
                               surgery_anchor_ts=str(surg_start), surgery_start_ts=str(surg_start),
-                              surgery_stop_ts=str(surg_start + pd.Timedelta(hours=3)), procedure_desc="hernia repair",
+                              surgery_stop_ts=str(surg_stop), procedure_desc="hernia repair",
                               surgical_area="abdomen", treatment_function_code_des=TFC[int(rng.integers(0, len(TFC)))]))
         first = surg_start + pd.Timedelta(days=3)
         discharge_method[spell] = 4 if rng.random() < 0.1 else (9 if rng.random() < 0.05 else 1)
@@ -70,7 +71,7 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
 
         def abx(name, when, route="IV", in_window=1):
             surgery_abx.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=event,
-                                    surgery_start_ts=str(surg_start), surgery_stop_ts=str(surg_start + pd.Timedelta(hours=3)),
+                                    surgery_start_ts=str(surg_start), surgery_stop_ts=str(surg_stop),
                                     medication_name_short=name, route=route, administration_status="Given",
                                     administration_ts=str(when), in_window=in_window, before_window=0))
 

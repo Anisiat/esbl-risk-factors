@@ -86,18 +86,22 @@ def attach_demographics(episodes: pd.DataFrame, demographics: pd.DataFrame, cfg:
     return out
 
 
-def set_sparse_ethnicity_missing(episodes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """Set ethnicity groups with fewer than ``ethnicity_min_count`` episodes to missing.
+def merge_sparse_ethnicity(episodes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Merge ethnicity groups with fewer than ``ethnicity_min_count`` episodes into ``ethnicity_sparse_into``.
 
-    Grain: one row per infection episode (unchanged). CHANGE vs baseline: counted over
-    the analysed episodes, not over all patients, and the threshold is in config.
+    Grain: one row per infection episode (unchanged). Counted over the analysed
+    episodes. CHANGE vs earlier port (decided 2026-11-23): sparse groups (e.g.
+    Mixed, if very few) are merged into Other instead of set to missing, so their
+    episodes stay in the complete-case models. Groups at or above the threshold,
+    Mixed included, are kept as they are.
     """
-    min_count = cfg["demographics"]["ethnicity_min_count"]
+    dem = cfg["demographics"]
+    min_count, into = dem["ethnicity_min_count"], dem["ethnicity_sparse_into"]
     counts = episodes[ETHNICITY].value_counts()
-    sparse = counts[counts < min_count].index
+    sparse = [g for g in counts[counts < min_count].index if g != into]
     out = episodes.copy()
-    out.loc[out[ETHNICITY].isin(sparse), ETHNICITY] = pd.NA
-    if len(sparse):
-        log.info("set_sparse_ethnicity_missing: %d group(s) below %d episodes set to missing: %s", len(sparse), min_count,
+    out.loc[out[ETHNICITY].isin(sparse), ETHNICITY] = into
+    if sparse:
+        log.info("merge_sparse_ethnicity: group(s) below %d episodes merged into '%s': %s", min_count, into,
                  counts[sparse].to_dict())
     return out

@@ -21,6 +21,7 @@ DEFAULTS = {
     "surgery_start_ts": pd.Timestamp("2020-01-02 08:00"), "surgery_stop_ts": pd.Timestamp("2020-01-02 10:30"),
     "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics",
     "n_surgeries_before": 1, "days_from_surgery_to_sample": 3.0, "surgery_length_hours": 2.5,
+    "surgery_event_id": "op1", "discharge_method": 1,
 }
 
 

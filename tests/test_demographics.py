@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 import pytest
 
-from esbl_rf.demographics import attach_demographics, clean_demographics, set_sparse_ethnicity_missing
+from esbl_rf.demographics import attach_demographics, clean_demographics, merge_sparse_ethnicity
 
 
 def raw(rows):
@@ -64,9 +64,16 @@ def test_attach_refuses_existing_column(cfg):
         attach_demographics(eps, demo, cfg)
 
 
-def test_sparse_ethnicity_set_missing(cfg):
+def test_sparse_ethnicity_merged_into_other(cfg):
     cfg["demographics"]["ethnicity_min_count"] = 3
-    eps = pd.DataFrame({"ethnicity_desc": ["white"] * 3 + ["mixed"] * 2 + [pd.NA]})
-    out = set_sparse_ethnicity_missing(eps, cfg)
+    eps = pd.DataFrame({"ethnicity_desc": ["white"] * 3 + ["mixed"] * 2 + ["other"] + [pd.NA]})
+    out = merge_sparse_ethnicity(eps, cfg)
     assert (out["ethnicity_desc"] == "white").sum() == 3
-    assert out["ethnicity_desc"].isna().sum() == 3  # 2 mixed + 1 already missing
+    assert (out["ethnicity_desc"] == "other").sum() == 3   # 2 mixed merged + 1 other (itself sparse, kept)
+    assert out["ethnicity_desc"].isna().sum() == 1
+
+
+def test_mixed_kept_when_not_sparse(cfg):
+    cfg["demographics"]["ethnicity_min_count"] = 2
+    eps = pd.DataFrame({"ethnicity_desc": ["white"] * 3 + ["mixed"] * 2})
+    assert (merge_sparse_ethnicity(eps, cfg)["ethnicity_desc"] == "mixed").sum() == 2

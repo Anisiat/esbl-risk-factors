@@ -49,6 +49,7 @@ episode_table:
     discharge_date: discharge_ts
     age_at_admission: age_at_admission_n
     imd_decile: index_of_multiple_deprivation_decile
+    discharge_method: discharge_method   # NHS Data Dictionary code; in-hospital mortality
   index_sample_columns:          # taken from the episode's first sample (its attributed surgery)
     surgery_start_dt: surgery_start_ts
     surgery_stop_dt: surgery_stop_ts
@@ -58,6 +59,7 @@ episode_table:
     n_surgeries: n_surgeries_before
     surgery_length: surgery_length_hours   # hours, from esbl_rf.surgery.add_surgery_length
     min_days_from_surgery_to_infection: days_from_surgery_to_sample
+    surgery_event_id: surgery_event_id     # links the episode to its prophylaxis (surgery_abx.csv)
 
 # Generic procedure labels (lower-case). Dropped from a spell only if the spell also has a
 # real procedure (as in the manuscript's get_surgery_features). Emergency labels such as
@@ -82,8 +84,9 @@ outcome:
 
 # Demographics (esbl_rf.demographics). Keys are lower-cased ethnicity_desc values from
 # demographics.csv (values listed in docs/data_dictionary.xlsx). Values not listed become
-# missing and are logged with counts. Groups with fewer than ethnicity_min_count episodes are
-# then set to missing (CHANGE vs manuscript: counted over analysed episodes, not all patients).
+# missing and are logged with counts. Groups with fewer than ethnicity_min_count analysed
+# episodes are then merged into ethnicity_sparse_into (decided 2026-11-23: Mixed stays its own
+# group unless very few; previously sparse groups were set to missing).
 demographics:
   ethnicity_groups:
     "white - british": white
@@ -117,6 +120,7 @@ demographics:
     "not stated": other_unknown
     "not known": other_unknown
   ethnicity_min_count: 30
+  ethnicity_sparse_into: other
   gender_groups:                 # lower-cased gender_desc -> level; null = deliberately missing
     female: female
     male: male
@@ -133,6 +137,70 @@ exposures:
     prior_discharge: prior_discharge_d
 
 suppression_threshold: 5        # counts below this are shown as <5
+
+# Antibiotic administrations (esbl_rf.antibiotics). Lists ported from the manuscript's
+# configs/antibiotics.yaml; names are lower-cased before matching.
+antibiotics:
+  medication_col: medication_name_short
+  route_col: route
+  time_col: administration_ts
+  # administration_status is not filtered (as in the manuscript); its values are logged
+  # in the run log. TODO: check them in the first SDE run (e.g. doses not given).
+  non_antibiotic_suffixes: [vir, zole, ine, nan, infusion, fungin, liposomal]
+  exclude: [nystatin, foscarnet, enfuvirtide, glucose, efavirenz, tenofovir disoproxil, isoniazid,
+            fluconazole, posaconazole, voriconazole, dapsone]
+  keep: [doxycycline, lymecycline, minocycline, oxytetracycline, tigecycline, sulfadiazine, metronidazole]
+  # Treatment agents: a prophylaxis course prefers other agents given at the same time.
+  therapeutic_agents: [piperacillin-tazobactam, ciprofloxacin, meropenem, amikacin, ceftriaxone, colistin,
+                       linezolid, avibactam-ceftazidime, ceftazidime, fosfomycin, cefiderocol,
+                       "amoxicillin (contains penicillin)"]
+
+# Perioperative prophylaxis (esbl_rf.antibiotics.choose_prophylaxis). The window itself is
+# set in sql/pipeline/00_params.sql: 2 h before surgery start to 1 h after surgery stop
+# (decided 2026-11-23).
+prophylaxis:
+  iv_routes: [iv]                # lower-cased route values counted as IV (manuscript: 'iv')
+  combine_minutes: 10            # agents within this of the anchor dose form one course
+  # Agent class by keyword in the agent name (an agent may match one class only).
+  # Rules in esbl_rf.antibiotics.group_prophylaxis follow the manuscript's group_prophylaxis.
+  agent_classes:
+    co_amoxiclav: [co-amoxiclav]
+    cefuroxime: [cefuroxime]
+    aminoglycoside: [gentamicin, amikacin, tobramycin, streptomycin]
+    limited_enterobacterales: [vancomycin, teicoplanin, daptomycin, linezolid, clindamycin, metronidazole,
+                               flucloxacillin, "amoxicillin (contains penicillin)"]
+    broad_gram_negative: [ceftriaxone, ciprofloxacin, levofloxacin, aztreonam, colistin, tigecycline,
+                          piperacillin, tazobactam, tazocin, ertapenem, meropenem, imipenem, doripenem]
+  group_labels:                  # manuscript labels (Table S1); the reference level is in logistic_regression
+    co_amoxiclav: co-amoxiclav-based
+    cefuroxime_aminoglycoside: cefuroxime +/- metronidazole + aminoglycoside
+    cefuroxime: cefuroxime +/- metronidazole
+    aminoglycoside: aminoglycoside-based
+    limited_enterobacterales: limited_enterobact_activity
+    broad_gram_negative: other_broad_spectrum_gram_negative_active
+    none: no_prophylaxis
+    other: other
+
+# Temperature and CRP (esbl_rf.clinical): value closest to the episode's first culture,
+# within window_hours either side, in the spell and after surgery start (decided 2026-11-23).
+# Descriptive only. Values outside `plausible` are dropped as data errors.
+clinical:
+  window_hours: 48
+  temperature:                   # temperature.csv (05_aux_tables.sql: AT_TEMPERATURE)
+    value_col: temperature
+    time_col: temp_performed_ts
+    plausible: [30, 45]          # degrees C
+  crp:                           # crp.csv (AT_CRP)
+    value_col: crp
+    time_col: sample_collected_ts
+    plausible: [0, 1000]         # mg/L
+
+# In-hospital mortality (esbl_rf.clinical.flag_in_hospital_death), from the spell's discharge
+# method (NHS Data Dictionary). death_date is anonymised to month/year, so it is not used.
+mortality:
+  discharge_method_col: discharge_method
+  died_codes: [4]                # 4 = patient died
+  unknown_codes: [8, 9]          # 8 = not applicable, 9 = not known: set to missing
 
 # --- Folders and files --------------------------------------------------
 # Each folder is defined once; files below are names inside that folder.
@@ -258,7 +326,7 @@ table1:
     - culture_span_days
     - prior_positive_esbl
 
-    - temp
+    - temperature
     - crp
 
     - past_abx
@@ -294,7 +362,7 @@ table1:
     - n_surgeries
     - surgery_length
     - min_days_from_surgery_to_infection
-    - temp
+    - temperature
     - crp
     # CHANGE vs manuscript (decided 2026-11-13): skewed counts/durations,
     # previously shown as mean (SD).
@@ -354,8 +422,6 @@ logistic_regression:
       - days_from_admission_to_first_culture
       - surgery_length
       - min_days_from_surgery_to_infection
-      - temp
-      - crp
       - cci_score                # CHANGE vs manuscript: replaces the individual comorbidities
 
     binary:

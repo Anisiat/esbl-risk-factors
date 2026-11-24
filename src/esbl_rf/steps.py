@@ -11,9 +11,11 @@ import logging
 
 import pandas as pd
 
+from esbl_rf.antibiotics import add_prophylaxis, choose_prophylaxis, filter_antibiotics, flag_past_abx, log_value_counts
+from esbl_rf.clinical import add_nearest_measurement, flag_in_hospital_death
 from esbl_rf.cohort_derivation import build_flowchart, derivation_table, record_step
 from esbl_rf.comorbidity import add_comorbidities
-from esbl_rf.demographics import attach_demographics, clean_demographics, set_sparse_ethnicity_missing
+from esbl_rf.demographics import attach_demographics, clean_demographics, merge_sparse_ethnicity
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
 from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status,
                               exclude_other_site_episodes)
@@ -26,7 +28,7 @@ from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeri
 log = logging.getLogger(__name__)
 
 LABELLED, ELIGIBLE, EPISODES, EXPOSURES = "microbiology_labelled", "eligible_samples", "episodes", "episode_exposures"
-COMORBIDITY, FLOWCHART = "episode_comorbidity", "flowchart"
+COMORBIDITY, CLINICAL, FLOWCHART = "episode_comorbidity", "episode_clinical", "flowchart"
 EPISODE_DATES = ["admission_date", "discharge_date", "surgery_start_dt", "surgery_stop_dt", "first_culture_dt", "last_culture_dt"]
 
 
@@ -130,7 +132,7 @@ def run_exposures(cfg: dict) -> pd.DataFrame:
     demographics = clean_demographics(
         read_raw(cfg, "demographics", date_cols=["death_date"], usecols=list(cols["demographics"])), cfg)
     episodes = attach_demographics(episodes, demographics, cfg)
-    episodes = set_sparse_ethnicity_missing(episodes, cfg)
+    episodes = merge_sparse_ethnicity(episodes, cfg)
 
     ec = cfg["exposures"]["inpatient_columns"]
     prior = read_raw(cfg, "inpatient_exposure", date_cols=list(ec.values()))
@@ -162,6 +164,38 @@ def run_comorbidity(cfg: dict) -> pd.DataFrame:
     return episodes
 
 
+def run_clinical(cfg: dict) -> pd.DataFrame:
+    """Add past antibiotics, prophylaxis, temperature, CRP and in-hospital mortality to each episode.
+
+    Grain: one row per infection episode (unchanged from ``run_comorbidity``).
+    """
+    cols, ab, clin = cfg["columns"], cfg["antibiotics"], cfg["clinical"]
+    event = "surgery_event_id"
+    episodes = _status_as_int(read_checkpoint(cfg, COMORBIDITY, date_cols=EPISODE_DATES), cfg)
+    n_no_surgery = int(episodes[event].isna().sum())
+    if n_no_surgery:
+        raise ValueError(f"run_clinical: {n_no_surgery} episode(s) have no attributed surgery ('{event}')")
+    episodes[event] = episodes[event].astype("string")
+
+    admin = read_raw(cfg, "abx_administrations", date_cols=[ab["time_col"]])
+    log_value_counts(admin, [ab["route_col"], "administration_status"], "abx_administrations")
+    episodes = flag_past_abx(episodes, filter_antibiotics(admin, cfg), cfg)
+
+    surgery_abx = read_raw(cfg, "surgery_abx", date_cols=[ab["time_col"], cols["surgery_start"], cols["surgery_stop"]],
+                           text_cols=[event])
+    log_value_counts(surgery_abx, [ab["route_col"], "administration_status"], "surgery_abx")
+    episodes = add_prophylaxis(episodes, choose_prophylaxis(filter_antibiotics(surgery_abx, cfg), cfg), cfg)
+
+    for name in ("temperature", "crp"):
+        obs = read_raw(cfg, name, date_cols=[clin[name]["time_col"]])
+        episodes = add_nearest_measurement(episodes, obs, name, cfg)
+    episodes = flag_in_hospital_death(episodes, cfg)
+
+    assert episodes["infection_id"].is_unique, "run_clinical: infection_id is not unique"
+    write_checkpoint(episodes, cfg, CLINICAL)
+    return episodes
+
+
 def run_flowchart(cfg: dict) -> pd.DataFrame:
     """Full cohort flow diagram: SQL steps (``qa_flowchart_sql.csv``) then the Python derivation log.
 
@@ -175,4 +209,4 @@ def run_flowchart(cfg: dict) -> pd.DataFrame:
 
 # Order matters: each step reads the checkpoint of an earlier one.
 STEPS = {"label": run_label, "cohort": run_cohort_samples, "episodes": run_episodes, "exposures": run_exposures,
-         "comorbidity": run_comorbidity, "flowchart": run_flowchart}
+         "comorbidity": run_comorbidity, "clinical": run_clinical, "flowchart": run_flowchart}

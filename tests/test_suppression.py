@@ -1,7 +1,7 @@
 """Tests for esbl_rf.suppression and the suppressed export tables."""
 import pandas as pd
 
-from esbl_rf.export import fmt_or, fmt_p, table1_display
+from esbl_rf.export import fmt_median_iqr, fmt_or, fmt_p, median_iqr_decimals, table1_display
 from esbl_rf.suppression import round_counts, suppress, suppress_counts
 
 
@@ -38,6 +38,9 @@ def test_rounding_and_counts_as_text():
 def test_number_formats():
     assert fmt_or(1.234, 0.987, 1.5) == "1.23 (0.99–1.50)" and fmt_or(float("nan"), 1, 1) == "–"
     assert fmt_p(0.0004) == "<0.001" and fmt_p(0.0456) == "0.046"
+    assert fmt_median_iqr(1.0, 1.0, 2.0) == "1 [1–2]" and fmt_median_iqr(38.0, 37.4, 38.5) == "38.0 [37.4–38.5]"
+    assert fmt_median_iqr(154.0, 78.5, 226.0) == "154 [78–226]"
+    assert median_iqr_decimals([5.0, 3.0, 8.0, 6.0, 3.5, 8.0]) == 1      # one group not whole: whole row 1 dp
 
 
 def test_table1_display_hides_small_cells_and_their_percent(cfg):

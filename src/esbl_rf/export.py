@@ -3,7 +3,9 @@
 The only module that writes to ``paths.export_dir``. It reads aggregate
 checkpoints only (never episode-level data) and applies ``esbl_rf.suppression``
 to every count. Number formats (CLAUDE.md): ORs and 95% CIs to 2 decimal
-places; p-values to 3, ``<0.001`` below that; percentages to 1.
+places; percentages to 1. Tables report estimates with 95% CIs and no
+p-values (decided 2026-11-25); the univariable screening p-value appears only
+in the methods table ``model_selection``.
 """
 from __future__ import annotations
 
@@ -38,9 +40,17 @@ def fmt_p(p: float) -> str:
     return "<0.001" if p < 0.001 else f"{p:.3f}"
 
 
-def fmt_median_iqr(median: float, q1: float, q3: float) -> str:
-    """``median [q1–q3]`` with one decimal place, or none if the upper quartile is 100 or more."""
-    dp = 0 if abs(q3) >= 100 else 1
+def median_iqr_decimals(values: list[float]) -> int:
+    """Decimal places for one Table 1 row: none if every value is whole or any is 100 or more, else one."""
+    shown = [v for v in values if pd.notna(v)]
+    whole = all(float(v).is_integer() for v in shown)
+    return 0 if whole or any(abs(v) >= 100 for v in shown) else 1
+
+
+def fmt_median_iqr(median: float, q1: float, q3: float, dp: int | None = None) -> str:
+    """``median [q1–q3]``; ``dp`` decimal places (default from ``median_iqr_decimals``)."""
+    if dp is None:
+        dp = median_iqr_decimals([median, q1, q3])
     return f"{median:.{dp}f} [{q1:.{dp}f}–{q3:.{dp}f}]"
 
 
@@ -95,11 +105,13 @@ def table1_display(t1: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, list[str]
             if kind == "continuous":
                 r = vrows.iloc[0]
                 row = {"Characteristic": f"{label}, median [IQR]", "Missing": missing}
+                dp = median_iqr_decimals([r[f"{g}_{s}"] for g in GROUPS for s in ("median", "q1", "q3")
+                                          if r[f"{g}_denom"] >= thr])
                 for g in GROUPS:
                     small = 0 < r[f"{g}_denom"] < thr
                     row[names[g]] = (f"<{thr} values" if small else
                                      "" if r[f"{g}_denom"] == 0 else
-                                     fmt_median_iqr(r[f"{g}_median"], r[f"{g}_q1"], r[f"{g}_q3"]))
+                                     fmt_median_iqr(r[f"{g}_median"], r[f"{g}_q1"], r[f"{g}_q3"], dp))
                 out.append(row)
                 continue
             if kind == "binary":
@@ -120,8 +132,12 @@ def table1_display(t1: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, list[str]
                     row[names[g]] = shown
                 out.append(row)
     table = pd.DataFrame(out, columns=["Characteristic", "Missing", *names.values()]).fillna("")
-    notes = [f"Episode level. n (%) of episodes with a recorded value; continuous variables as median [IQR]. "
-             "No p-values (descriptive).",
+    notes = ["Unit of analysis: infection episode; a patient may contribute more than one episode.",
+             "Categorical variables: n (%), percentages of episodes with a recorded value. Continuous variables: "
+             "median [interquartile range]. Missing: episodes with no recorded value (all groups).",
+             "Prior hospital admission, prior antibiotics, prior ESBL-positive culture and comorbidities: absence "
+             "of a record is taken as absence of the exposure.",
+             "Descriptive; no statistical tests.",
              f"<{thr}: fewer than {thr} episodes; *: hidden so that a small count cannot be worked out from totals."]
     return table, notes
 
@@ -142,29 +158,27 @@ def table2_display(uni: pd.DataFrame, terms: pd.DataFrame, selection: pd.DataFra
         return df.assign(level=df["level"].fillna("")).set_index(key)
     u = by_term(uni)
     m = {name: by_term(terms[terms["model"] == name]) for name in ("primary", "first_episode")}
-    cols = ["Variable", "Univariable OR (95% CI)", "p (univariable)", "Multivariable aOR (95% CI)", "p (multivariable)",
-            "First-episode aOR (95% CI)", "p (first episode)"]
+    cols = ["Variable", "Univariable OR (95% CI)", "Multivariable aOR (95% CI)", "First-episode aOR (95% CI)"]
     order = [v for block in cfg["table1"]["blocks"].values() for v in block if v in set(selection["variable"])]
     blocks = {v: b for b, vs in cfg["table1"]["blocks"].items() for v in vs}
 
     def cells(k):
-        row = [fmt_or(*u.loc[k, ["odds_ratio", "ci_lower", "ci_upper"]]), fmt_p(u.at[k, "p_value"])]
+        row = [fmt_or(*u.loc[k, ["odds_ratio", "ci_lower", "ci_upper"]])]
         for name in ("primary", "first_episode"):
             df = m[name]
-            row += ([fmt_or(*df.loc[k, ["odds_ratio", "ci_lower", "ci_upper"]]), fmt_p(df.at[k, "p_value"])]
-                    if k in df.index else [DASH, DASH])
+            row.append(fmt_or(*df.loc[k, ["odds_ratio", "ci_lower", "ci_upper"]]) if k in df.index else DASH)
         return row
 
     out, current = [], None
     for var in order:
         if blocks[var] != current:
             current = blocks[var]
-            out.append([current] + [""] * 6)
+            out.append([current] + [""] * 3)
         levels = u.loc[var].index.tolist()
         if levels == [""]:
             out.append([var_label(cfg, var)] + cells((var, "")))
         else:
-            out.append([f"{var_label(cfg, var)} (ref: {level_label(cfg, refs[var])})"] + [""] * 6)
+            out.append([f"{var_label(cfg, var)} (ref: {level_label(cfg, refs[var])})"] + [""] * 3)
             out += [[f"  {level_label(cfg, lvl)}"] + cells((var, lvl)) for lvl in levels]
     table = pd.DataFrame(out, columns=cols)
 
@@ -173,12 +187,16 @@ def table2_display(uni: pd.DataFrame, terms: pd.DataFrame, selection: pd.DataFra
     def n_ev(model):
         return (f"{suppress_counts(pd.Series([d.at[model, 'n_used']]), thr)[0]} episodes, "
                 f"{suppress_counts(pd.Series([d.at[model, 'events']]), thr)[0]} ESBL-positive")
-    notes = [f"Multivariable: complete cases ({n_ev('primary')}), patient-clustered standard errors; "
+    notes = ["OR: odds ratio; aOR: adjusted odds ratio; CI: confidence interval. Unit of analysis: infection "
+             "episode. Estimates describe associations, not causal effects.",
+             "Univariable: all episodes with a recorded value for that variable.",
+             f"Multivariable: complete cases ({n_ev('primary')}), patient-clustered standard errors; "
              f"EPV {d.at['primary', 'epv']:.1f}.",
              f"First episode per patient: {n_ev('first_episode')}, ordinary standard errors; "
              f"EPV {d.at['first_episode', 'epv']:.1f}.",
              f"Candidates: univariable joint Wald p < {cfg['logistic_regression']['screen_p']} or clinically "
-             "important (prespecified). A dash: not in the multivariable model.",
+             "important (prespecified); every candidate is in both multivariable models. A dash: not in the "
+             "multivariable model.",
              "Continuous variables per unit (age per year, IMD per decile, surgery duration per hour, CCI per point)."]
     merged = d.at["primary", "merged_levels"]
     if isinstance(merged, str) and merged:
@@ -202,15 +220,17 @@ def subgroup_display(sub: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, list[s
                 "EPV": "" if pd.isna(r.epv) else f"{r.epv:.1f}"}
         rows = sub[(sub["subgroup"] == r.subgroup) & (sub["stratum"] == r.stratum) & sub["variable"].notna()]
         if rows.empty:
-            out.append({**base, "Variable / category": DASH, "OR (95% CI)": DASH, "p": DASH})
+            out.append({**base, "Variable / category": DASH, "aOR (95% CI)": DASH})
             continue
         for t in rows.itertuples():
             name = var_label(cfg, t.variable) + (f": {level_label(cfg, t.level)}" if pd.notna(t.level) else "")
-            out.append({**base, "Variable / category": name, "OR (95% CI)": fmt_or(t.odds_ratio, t.ci_lower, t.ci_upper),
-                        "p": fmt_p(t.p_value)})
-    cols = ["Stratum", "Variable / category", "OR (95% CI)", "p", "n", "Events", "EPV", "Status"]
+            out.append({**base, "Variable / category": name,
+                        "aOR (95% CI)": fmt_or(t.odds_ratio, t.ci_lower, t.ci_upper)})
+    cols = ["Stratum", "Variable / category", "aOR (95% CI)", "n", "Events", "EPV", "Status"]
     lr = cfg["logistic_regression"]
-    notes = [f"Exploratory. Strata with EPV < {lr['min_subgroup_epv']} are not estimated; EPV < "
+    notes = ["Exploratory; adjusted for the primary-model predictors (the stratifying variable excluded). "
+             "EPV: ESBL-positive or non-ESBL episodes, whichever is fewer, per model parameter.",
+             f"Strata with EPV < {lr['min_subgroup_epv']} are not estimated; EPV < "
              f"{lr['stable_subgroup_epv']} is flagged as unstable. Patient-clustered standard errors.",
              f"<{thr}: fewer than {thr}; *: hidden so that a small count cannot be worked out."]
     return pd.DataFrame(out, columns=cols), notes
@@ -250,7 +270,10 @@ def flowchart_display(flow: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, list
 # --- forest plot ----------------------------------------------------------
 
 def forest_plot(terms: pd.DataFrame, cfg: dict, stem: Path) -> list[Path]:
-    """Forest plot of primary-model aORs (log scale), p < 0.05 highlighted; vector PDF and 300 dpi PNG."""
+    """Forest plot of primary-model aORs (log scale); vector PDF and 300 dpi PNG.
+
+    Estimates whose 95% CI excludes 1 are drawn darker (no p-values shown).
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -272,7 +295,7 @@ def forest_plot(terms: pd.DataFrame, cfg: dict, stem: Path) -> list[Path]:
 
     fig, ax = plt.subplots(figsize=(8, max(4, 0.32 * len(labels) + 1)))
     for yy, r in rows:
-        sig = r["p_value"] < 0.05
+        sig = r["ci_lower"] > 1 or r["ci_upper"] < 1
         colour = "#1f3a93" if sig else "0.55"
         ax.plot([r["ci_lower"], r["ci_upper"]], [yy, yy], color=colour, lw=1.6)
         ax.plot(r["odds_ratio"], yy, "o", color=colour, ms=5 if sig else 4)
@@ -290,7 +313,7 @@ def forest_plot(terms: pd.DataFrame, cfg: dict, stem: Path) -> list[Path]:
     ax.invert_yaxis()
     ax.set_xlabel("Adjusted odds ratio (95% CI, log scale)")
     ax.spines[["top", "right"]].set_visible(False)
-    ax.set_title("Factors associated with ESBL positivity (blue: p < 0.05)", fontsize=10)
+    ax.set_title("Factors associated with ESBL positivity (blue: 95% CI excludes 1)", fontsize=10)
     fig.tight_layout()
     paths = [stem.with_suffix(".pdf"), stem.with_suffix(".png")]
     fig.savefig(paths[0])

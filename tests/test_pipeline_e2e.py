@@ -93,6 +93,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
         exported = pd.read_csv(csv, dtype=str, keep_default_na=False)
         assert not {"subject", "infection_id"} & set(exported.columns), csv.name
     t2 = pd.read_csv(export / "table2.csv", dtype=str, keep_default_na=False)
+    assert not any(c.startswith("p") for c in t2.columns)
     assert t2["Univariable OR (95% CI)"].str.match(r"^$|^\d+\.\d\d \(").all()
 
     flow = pd.read_csv(interim / "flowchart.csv")

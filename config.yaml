@@ -465,6 +465,8 @@ labels:
     limited_enterobact_activity: Limited Enterobacterales activity
     other_broad_spectrum_gram_negative_active: Broad-spectrum Gram-negative active
     no_prophylaxis: No prophylaxis
+    "1-2": "1–2"
+    ">=3": "≥3"
 
 # --- Cohort flow diagram (esbl_rf.cohort_derivation.build_flowchart) ----
 flowchart:

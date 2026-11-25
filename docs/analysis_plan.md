@@ -302,19 +302,21 @@ characteristics, Clinical history/comorbidities (incl. CCI), Infection
 characteristics (site, organism), Pathology and vitals, Clinical outcomes.
 
 **Table 2:** columns Variable | Univariable OR (95% CI) | Multivariable
-clustered aOR (95% CI) | Multivariable first-episode aOR (95% CI). Each OR
-column is followed by its p-value. Same row
+clustered aOR (95% CI) | Multivariable first-episode aOR (95% CI). No
+p-value columns: estimates and 95% CIs only (decided 2026-11-25, to match the
+manuscript's aims; the screening p-value is reported only in
+`model_selection`). Same row
 blocks; "–" for variables not in the model; reference categories in a
 footnote.
 
 **Table S2:** columns Specialty | n surgery events | % sampled | samples per
 100 patient-days.
 
-**Table S3:** columns Stratum | Variable/category | OR (95% CI) | p | n |
+**Table S3:** columns Stratum | Variable/category | aOR (95% CI) | n |
 events | EPV.
 
 **Figure:** forest plot of primary-model aORs, with reference categories
-annotated and significant estimates (p < 0.05) highlighted.
+annotated; estimates whose 95% CI excludes 1 drawn darker (no p-values).
 
 **Model diagnostics:** `model_diagnostics.csv` with N used, events, EPV, max
 VIF, and the variables dropped or collapsed.

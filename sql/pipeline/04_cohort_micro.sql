@@ -31,7 +31,10 @@ USE SCHEMA SMTPATH_25046;
 -- post-discharge samples cannot be split by setting; collected_during_admission marks
 -- the in-hospital ones.
 -- If a sample falls in the window of two spells, it is kept once, on the spell that
--- contains it, otherwise on the most recent admission.
+-- contains it, otherwise on the most recent admission. Ties (two spells with the same
+-- admission date, e.g. overlapping spells) are broken by admission time and then spell
+-- identifier, so every run picks the same spell (without this, one run gave 4,702
+-- infection spells and a re-run 4,703).
 CREATE OR REPLACE TABLE AT_ELECTIVE_SPELL_MICROBIOLOGY AS
 WITH last_surgery AS (
     SELECT SUBJECT, SPELL_IDENTIFIER, MAX(surgery_anchor_ts) AS last_surgery_anchor_ts
@@ -57,7 +60,8 @@ INNER JOIN AT_MICROBIOLOGY_EKP m
         )
 QUALIFY ROW_NUMBER() OVER (
     PARTITION BY m.LAB_TEST_ID, m.ORGANISM_BUG
-    ORDER BY IFF(m.collect_ts < DATEADD(day, 1, s.discharge_d), 1, 0) DESC, s.admission_d DESC
+    ORDER BY IFF(m.collect_ts < DATEADD(day, 1, s.discharge_d), 1, 0) DESC, s.admission_d DESC,
+             s.admission_ts DESC NULLS LAST, s.SPELL_IDENTIFIER
 ) = 1;
 
 

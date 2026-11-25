@@ -30,7 +30,7 @@
 --           esbl_statement_lab  1 if the statement appears anywhere in the lab test
 --                               (in ORGANISM_BUG; checked in the SDE 2026-11-25 that it
 --                               never appears in SENSITIVITY). Which organism it
---                               belongs to is not recorded (see 09_qa.sql counts).
+--                               belongs to is not recorded (counts: sql/exploration/02_esbl_statement_attribution.sql).
 -- CHANGES vs legacy
 --   * Restricted to cohort patients before pivoting (smaller, faster).
 --   * Base rows come from ALL result rows of a lab test, so a sample with no AST

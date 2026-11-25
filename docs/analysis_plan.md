@@ -130,7 +130,7 @@ Isolate is ESBL-positive if any of:
   `ORGANISM_BUG` as its own row, not against a named organism, so `esbl_statement`
   is always 0 and the statement currently contributes nothing. How to attribute it
   (e.g. only when the lab test has exactly one eligible organism) is undecided;
-  `09_qa.sql` reports the counts needed to choose.
+  `sql/exploration/02_esbl_statement_attribution.sql` gives the counts needed to choose.
 
 Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
 `drug : result` strings. Two hand-maintained lookup tables in the SDE

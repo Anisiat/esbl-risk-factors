@@ -121,43 +121,6 @@ WITH checks AS (
     SELECT 'spell_micro_rows_after_discharge', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
     FROM AT_ELECTIVE_SPELL_MICROBIOLOGY WHERE collected_during_admission = 0
 
-    -- ---- ESBL statement attribution (informational) ------------------------------------
-    -- The lab stores "This is an Extended Spectrum Beta-Lactamase Producer (ESBL)" as its
-    -- own ORGANISM_BUG row, so it is not tied to a named organism. These counts size the
-    -- question of how to attribute it (cohort patients, all time).
-    UNION ALL
-    SELECT 'micro_lab_tests_statement_as_organism', 'microbiology', 'INFO', COUNT(DISTINCT LAB_TEST_ID), 'info', TRUE
-    FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON
-    WHERE LOWER(ORGANISM_BUG) LIKE '%extended spectrum beta-lactamase producer%'
-      AND SUBJECT IN (SELECT SUBJECT FROM AT_ELECTIVE_SURGERY_COHORT)
-    UNION ALL
-    -- Statement lab tests with exactly one eligible organism: attribution is unambiguous.
-    SELECT 'micro_statement_lab_tests_one_eligible_organism', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
-    FROM (SELECT LAB_TEST_ID FROM AT_MICROBIOLOGY_EKP WHERE esbl_statement_lab = 1
-          GROUP BY LAB_TEST_ID HAVING COUNT(*) = 1)
-    UNION ALL
-    SELECT 'micro_statement_lab_tests_several_eligible_organisms', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
-    FROM (SELECT LAB_TEST_ID FROM AT_MICROBIOLOGY_EKP WHERE esbl_statement_lab = 1
-          GROUP BY LAB_TEST_ID HAVING COUNT(*) > 1)
-    UNION ALL
-    -- Eligible organisms in a statement lab test with no cephalosporin/marker result: these
-    -- are 'unknown' unless the statement is used.
-    SELECT 'micro_statement_rows_without_ast', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
-    FROM AT_MICROBIOLOGY_EKP WHERE esbl_statement_lab = 1 AND has_ast_info = 0
-    UNION ALL
-    -- Third-generation cephalosporin results tagged with the statement instead of an organism:
-    -- AT_MICROBIOLOGY_RESULTS keeps only the four organisms, so Python never sees these.
-    SELECT 'micro_3gc_results_under_statement_organism', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
-    FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON
-    WHERE LOWER(ORGANISM_BUG) LIKE '%extended spectrum beta-lactamase producer%'
-      AND SUBJECT IN (SELECT SUBJECT FROM AT_ELECTIVE_SURGERY_COHORT)
-      AND LOWER(TRIM(SENSITIVITY)) LIKE ANY ('cefotaxime :%', 'ceftazidime :%', 'ceftriaxone :%',
-                                             'cefpodoxime :%', 'cefixime :%')
-    UNION ALL
-    -- Analysis-spell samples whose lab test carries the statement.
-    SELECT 'spell_micro_rows_statement_lab', 'microbiology', 'INFO', COUNT(*), 'info', TRUE
-    FROM AT_ELECTIVE_SPELL_MICROBIOLOGY WHERE esbl_statement_lab = 1
-
     -- ---- aux tables are not empty ----------------------------------------------------
     UNION ALL SELECT 'aux_demographics_empty',    'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_DEMOGRAPHICS
     UNION ALL SELECT 'aux_problems_empty',        'aux', 'WARN', COUNT(*), '> 0', COUNT(*) > 0 FROM AT_PROBLEMS

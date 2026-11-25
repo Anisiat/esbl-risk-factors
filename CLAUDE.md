@@ -105,6 +105,10 @@ slow — optimise for correct-first-time runs.**
 1. SQL in `sql/` is run manually in a Snowflake worksheet and exported to CSV.
    Every SQL file starts with a header stating its output CSV filename; Python
    reads exactly those names from `config.yaml`.
+   Every table or view the SQL creates in the sandbox schema is named with the
+   `AT_` prefix (e.g. `AT_INFECTION_SPELLS`), so they sort together and are easy
+   to find in the Snowflake database browser. Exception still to resolve:
+   `STG_SURGERY` and `STG_EPISODES` in `01_staging.sql` predate this rule.
 2. `python scripts/make_bundle.py` creates `dist/esbl_rf_<githash>.zip`
    (code + config only, no data). Refuse to bundle with uncommitted changes.
 3. In the SDE: unzip, `pip install -r requirements.txt` (via Nexus), then

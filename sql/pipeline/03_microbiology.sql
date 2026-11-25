@@ -27,8 +27,9 @@
 --                               always 0: checked in the SDE 2026-11-25, the lab stores
 --                               the statement in ORGANISM_BUG, as its own "organism"
 --                               row, not as a result of the E. coli/Klebsiella/Proteus row.
---           esbl_statement_lab  1 if the statement appears anywhere in the lab test,
---                               in ORGANISM_BUG or SENSITIVITY. Which organism it
+--           esbl_statement_lab  1 if the statement appears anywhere in the lab test
+--                               (in ORGANISM_BUG; checked in the SDE 2026-11-25 that it
+--                               never appears in SENSITIVITY). Which organism it
 --                               belongs to is not recorded (see 09_qa.sql counts).
 -- CHANGES vs legacy
 --   * Restricted to cohort patients before pivoting (smaller, faster).
@@ -120,7 +121,6 @@ esbl_lab AS (
     FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
     INNER JOIN cohort_subjects c ON m.SUBJECT = c.SUBJECT
     WHERE LOWER(m.ORGANISM_BUG) LIKE '%extended spectrum beta-lactamase producer%'
-       OR LOWER(m.SENSITIVITY)  LIKE '%extended spectrum beta-lactamase producer%'
 )
 
 -- Final table: base rows plus flags for whether the sample has AST info and whether it has an ESBL statement.

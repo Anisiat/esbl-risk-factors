@@ -23,10 +23,14 @@
 --                               cefpodoxime result (legacy conditions 1-4)
 --           esbl_statement      1 if a result row for this lab test AND organism
 --                               reads "This is an Extended Spectrum Beta-Lactamase
---                               Producer (ESBL)" (string from the data dictionary)
---           esbl_statement_lab  same string anywhere in the lab test, any organism
---                               (kept because it is not known which organism the
---                               statement row is tagged with)
+--                               Producer (ESBL)" in SENSITIVITY. In practice this is
+--                               always 0: checked in the SDE 2026-11-25, the lab stores
+--                               the statement in ORGANISM_BUG, as its own "organism"
+--                               row, not as a result of the E. coli/Klebsiella/Proteus row.
+--           esbl_statement_lab  1 if the statement appears anywhere in the lab test
+--                               (in ORGANISM_BUG; checked in the SDE 2026-11-25 that it
+--                               never appears in SENSITIVITY). Which organism it
+--                               belongs to is not recorded (see 09_qa.sql counts).
 -- CHANGES vs legacy
 --   * Restricted to cohort patients before pivoting (smaller, faster).
 --   * Base rows come from ALL result rows of a lab test, so a sample with no AST
@@ -116,7 +120,7 @@ esbl_lab AS (
     SELECT DISTINCT m.LAB_TEST_ID
     FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
     INNER JOIN cohort_subjects c ON m.SUBJECT = c.SUBJECT
-    WHERE LOWER(m.SENSITIVITY) LIKE '%extended spectrum beta-lactamase producer%'
+    WHERE LOWER(m.ORGANISM_BUG) LIKE '%extended spectrum beta-lactamase producer%'
 )
 
 -- Final table: base rows plus flags for whether the sample has AST info and whether it has an ESBL statement.

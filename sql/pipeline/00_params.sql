@@ -39,6 +39,6 @@ SELECT
     2                  AS prophylaxis_hours_before_start,
     1                  AS prophylaxis_hours_after_stop,
 
-    -- Short commit hash of the code that produced the tables (git rev-parse --short HEAD,
-    -- run before zipping). Update it after each commit you upload.
-    '82aeef7'          AS git_hash;
+    -- Short commit hash of the code that produced the tables. Do not edit: the
+    -- placeholder is replaced by scripts/make_bundle.py in the uploaded copy.
+    '{{GIT_HASH}}'     AS git_hash;

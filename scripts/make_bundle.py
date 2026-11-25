@@ -13,6 +13,10 @@ What it does
    ``scripts/run_all.py`` reads it in the SDE to stamp ``outputs/run_log.txt``
    and to detect files edited after upload.
 4. Refuses to bundle anything that looks like a data file.
+5. Writes the short commit hash into the bundled copy of
+   ``sql/pipeline/00_params.sql`` (placeholder ``{{GIT_HASH}}``), so the SQL
+   tables record the commit they were built from. The committed file keeps
+   the placeholder, because a commit cannot contain its own hash.
 
 The zip is deterministic: the same commit always gives a byte-identical zip,
 so the printed zip SHA-256 can be compared with ``sha256sum`` after upload.
@@ -47,6 +51,8 @@ FORBIDDEN_SUFFIXES = frozenset(
     {".csv", ".parquet", ".feather", ".pkl", ".pickle", ".xlsx", ".xls", ".zip", ".dta", ".sav"}
 )
 BUILD_INFO_NAME = "BUILD_INFO.json"
+HASH_FILE = "sql/pipeline/00_params.sql"
+HASH_PLACEHOLDER = b"{{GIT_HASH}}"
 
 
 def _git(*args: str) -> bytes:
@@ -130,6 +136,24 @@ def list_bundle_files() -> list[str]:
     return files
 
 
+def stamp_hash(contents: dict[str, tuple[bytes, int]], short_hash: str) -> None:
+    """Replace the hash placeholder in ``HASH_FILE`` with ``short_hash`` (in place).
+
+    Raises
+    ------
+    RuntimeError
+        If the file is not in the bundle or the placeholder does not appear exactly once.
+    """
+    if HASH_FILE not in contents:
+        raise RuntimeError(f"make_bundle: {HASH_FILE} is not in the bundle")
+    data, mode = contents[HASH_FILE]
+    n = data.count(HASH_PLACEHOLDER)
+    if n != 1:
+        raise RuntimeError(f"make_bundle: expected the placeholder {HASH_PLACEHOLDER.decode()} once in "
+                           f"{HASH_FILE}, found {n}")
+    contents[HASH_FILE] = (data.replace(HASH_PLACEHOLDER, short_hash.encode()), mode)
+
+
 def build_bundle(out_dir: Path) -> Path:
     """Build the zip for the current HEAD commit.
 
@@ -165,6 +189,8 @@ def build_bundle(out_dir: Path) -> Path:
             f"make_bundle: {len(missing)} listed files missing from archive "
             f"(symlinks?): {missing[:5]}"
         )
+
+    stamp_hash(contents, short_hash)   # before BUILD_INFO, so its file hashes match the zip
 
     build_info = {
         "bundle_format": 1,

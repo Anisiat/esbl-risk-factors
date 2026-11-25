@@ -126,6 +126,11 @@ Isolate is ESBL-positive if any of:
   `03_microbiology.sql`). CHANGE, decided 2026-11-17: the manuscript code did
   not use this statement. `esbl_statement_lab` (statement anywhere in the lab
   test, any organism) is not used for labelling, only for QA.
+  FINDING 2026-11-25 (open, needs a decision): the lab stores the statement in
+  `ORGANISM_BUG` as its own row, not against a named organism, so `esbl_statement`
+  is always 0 and the statement currently contributes nothing. How to attribute it
+  (e.g. only when the lab test has exactly one eligible organism) is undecided;
+  `09_qa.sql` reports the counts needed to choose.
 
 Third-generation cephalosporin result strings. The `SENSITIVITY` column holds
 `drug : result` strings. Two hand-maintained lookup tables in the SDE

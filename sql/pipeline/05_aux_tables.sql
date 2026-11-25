@@ -327,7 +327,9 @@ INNER JOIN ICHT_PROD.ICARE_ICHT.ICARE_OUTPATIENT_ANON o
 -- Coded procedures (OPCS) -----------------------------------------------------------
 -- Validation only: lets us cross-tabulate TFC specialty against OPCS procedure
 -- chapter. Not an analysis variable (that would change a study definition).
--- Column names are from the data dictionary; this table was not used in legacy SQL.
+-- Column names are from the data dictionary, except the date column: it is PROCEDURE_DT
+-- in Snowflake (checked in the SDE 2026-11-25; the dictionary says procedure_date).
+-- This table was not used in legacy SQL.
 CREATE OR REPLACE TABLE AT_PROCEDURES_OPCS AS
 SELECT DISTINCT
     s.SUBJECT,
@@ -337,8 +339,8 @@ SELECT DISTINCT
     p.PROCEDURE_SEQ_NBR,
     p.PROCEDURE_CODE_OPCS,
     p.PROCEDURE_NAME_OPCS,
-    p.PROCEDURE_DATE,
-    TRY_TO_TIMESTAMP(p.PROCEDURE_DATE::STRING) AS procedure_ts
+    p.PROCEDURE_DT,
+    TRY_TO_TIMESTAMP(p.PROCEDURE_DT::STRING) AS procedure_ts
 FROM AT_INFECTION_SPELLS s
 INNER JOIN ICHT_PROD.ICARE_ICHT.ICARE_EPISODES_PROCEDURES_ANON p
     ON  s.SUBJECT = p.SUBJECT

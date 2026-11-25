@@ -29,7 +29,7 @@ _REQUIRED: dict[str, tuple[str, ...]] = {
     "labels": ("groups", "variables", "levels"),
     "antibiotics": ("medication_col", "route_col", "time_col", "non_antibiotic_suffixes", "exclude", "keep",
                     "therapeutic_agents"),
-    "prophylaxis": ("iv_routes", "combine_minutes", "agent_classes", "group_labels"),
+    "prophylaxis": ("hours_before_start", "hours_after_stop", "iv_routes", "combine_minutes", "agent_classes", "group_labels"),
     "clinical": ("window_hours", "temperature", "crp"),
     "mortality": ("discharge_method_col", "died_codes", "unknown_codes"),
     "flowchart": ("sql_link_step", "sql_informational_steps"),

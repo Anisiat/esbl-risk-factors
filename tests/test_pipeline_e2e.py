@@ -85,7 +85,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert set(sub["subgroup"]) == set(run_cfg["logistic_regression"]["subgroups"])
 
     export = run_cfg["paths"]["export_dir"]
-    for name in ("flowchart_counts.csv", "table1.csv", "table1_supplement.csv", "table2.csv",
+    for name in ("flowchart_counts.csv", "table1.csv", "table1_supplement.csv", "table2.csv", "table_s_definitions.csv",
                  "table_s3_subgroups.csv", "model_diagnostics.csv", "tables.xlsx", "figure_forest.pdf",
                  "figure_forest.png"):
         assert (export / name).is_file(), name

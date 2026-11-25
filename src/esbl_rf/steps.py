@@ -17,7 +17,7 @@ from esbl_rf.cohort_derivation import build_flowchart, derivation_table, record_
 from esbl_rf.comorbidity import add_comorbidities
 from esbl_rf.demographics import attach_demographics, clean_demographics, merge_sparse_ethnicity
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
-from esbl_rf.export import (diagnostics_display, flowchart_display, forest_plot, subgroup_display, table1_display,
+from esbl_rf.export import (definitions_table, diagnostics_display, flowchart_display, forest_plot, subgroup_display, table1_display,
                              table2_display, write_tables)
 from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status,
                               exclude_other_site_episodes)
@@ -284,6 +284,7 @@ def run_export(cfg: dict) -> pd.DataFrame:
         "table2": table2_display(models["model_univariable"], models["model_terms"], models["model_selection"],
                                  models["model_diagnostics"], cfg),
         "table_s3_subgroups": subgroup_display(models["model_subgroups"], cfg),
+        "table_s_definitions": definitions_table(cfg),
     }
     diag = diagnostics_display(models["model_diagnostics"], models["model_vif"], models["model_selection"],
                                models["model_complete_case"], models["model_merged_levels"], cfg)

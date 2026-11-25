@@ -162,6 +162,10 @@ antibiotics:
 # set in sql/pipeline/00_params.sql: 2 h before surgery start to 1 h after surgery stop
 # (decided 2026-11-23).
 prophylaxis:
+  # The window is applied in SQL; these copies (must equal 00_params.sql, checked by
+  # tests/test_config.py) are used only to describe it in the definitions table.
+  hours_before_start: 2
+  hours_after_stop: 1
   iv_routes: [iv]                # lower-cased route values counted as IV (manuscript: 'iv')
   combine_minutes: 10            # agents within this of the anchor dose form one course
   # Agent class by keyword in the agent name (an agent may match one class only).
@@ -533,6 +537,8 @@ logistic_regression:
     - organism_bug
     - site
     - cci_score
+    - past_abx                   # added 2026-11-25: established ESBL risk factor
+    - inpatient_exposure_90d     # added 2026-11-25: established ESBL risk factor
 
   # Sparse levels (decided 2026-11-24): a non-reference level with fewer than
   # min_events ESBL-positive or fewer than min_events non-ESBL episodes is merged

@@ -233,7 +233,9 @@ multivariable model).
 2. **Univariable:** logistic regression per variable; crude OR (95% CI).
 3. **Variable selection:** p < 0.20 or clinically important (prespecified
    list in `config.yaml`: age, sex, prior ESBL, specialty, prophylaxis,
-   organism, specimen site, CCI). Log the reason each variable was included.
+   organism, specimen site, CCI; prior antibiotics and prior hospital
+   admission in the 90 days before admission added 2026-11-25 as established
+   ESBL risk factors). Log the reason each variable was included.
    Implementation (`esbl_rf.models`, decided 2026-11-24): univariable models
    use patient-clustered SEs and the episodes with that variable recorded; a
    variable is screened by one joint Wald test over all its levels (the
@@ -314,6 +316,14 @@ footnote.
 
 **Table S3:** columns Stratum | Variable/category | aOR (95% CI) | n |
 events | EPV.
+
+**Table S (definitions)** (RECORD 6.1/7.1, added 2026-11-25):
+`table_s_definitions` lists the codes, lists and rules behind the cohort,
+outcome and variables (admission method codes, organisms, screening
+exclusions, specimen-site keywords, ESBL rules, exposure windows, prophylaxis
+agent classes, specialty and ethnicity mappings, CCI source). Generated from
+`config.yaml` by `esbl_rf.export.definitions_table`, so it always matches the
+code that ran; it contains no data.
 
 **Figure:** forest plot of primary-model aORs, with reference categories
 annotated; estimates whose 95% CI excludes 1 drawn darker (no p-values).

@@ -204,6 +204,101 @@ def table2_display(uni: pd.DataFrame, terms: pd.DataFrame, selection: pd.DataFra
     return table, notes
 
 
+# --- codes and definitions (RECORD 6.1, 7.1) -----------------------------
+
+def _join(values) -> str:
+    return "; ".join(str(v) for v in values)
+
+
+def _pattern_words(pattern: str) -> str:
+    """Site regex as readable keywords: ``\\bwound\\b|\\bpus\\b`` -> ``wound, pus``."""
+    return ", ".join(w.replace("\\b", "") for w in pattern.split("|"))
+
+
+def definitions_table(cfg: dict) -> tuple[pd.DataFrame, list[str]]:
+    """Supplementary table of the codes, lists and rules that define the cohort, outcome and variables.
+
+    Built from ``config.yaml`` only (no data), so it always matches the code that
+    produced the results. Grain: one row per definition.
+    """
+    st, se, ep = cfg["study"], cfg["sample_eligibility"], cfg["episodes"]
+    oc, ex, pr, cl = cfg["outcome"], cfg["exposures"], cfg["prophylaxis"], cfg["clinical"]
+    lr = cfg["logistic_regression"]
+    rows = [
+        ("Cohort", "Study period", f"Surgery start from {st['study_start']} to {st['study_end']} inclusive"),
+        ("Cohort", "Age", f"{st['min_age']} years or older at admission"),
+        ("Cohort", "Elective admission", "NHS admission method codes " + _join(st["elective_admission_methods"])),
+        ("Cohort", "Surgery-to-admission linkage", "Surgery start between admission and discharge of the spell"),
+        ("Samples", "Organisms", _join(level_label(cfg, o) for o in st["organisms"])),
+        ("Samples", "Timing", f"Collected at least {se['min_hours_after_admission']} h after admission and no more "
+                              f"than {se['max_days_after_surgery']} days after the most recent preceding surgery "
+                              "(including after discharge)"),
+        ("Samples", "Screening samples excluded",
+         f"Culture codes {_join(se['screening']['culture_codes'])}; sites {_join(se['screening']['rectal_sites'])}"),
+    ]
+    rows += [("Samples", f"Specimen site: {level_label(cfg, g['label'])}",
+              f"Site or culture type contains: {_pattern_words(g['pattern'])}") for g in cfg["sites"]["groups"]]
+    rows += [
+        ("Samples", "Episode specimen site", "First present in the order "
+         + _join(level_label(cfg, s) for s in cfg["sites"]["hierarchy"])),
+        ("Episodes", "Infection episode", f"Positive cultures of the same organism no more than {ep['gap_days']} days "
+                                          "apart; a different organism, or a gap of more than "
+                                          f"{ep['gap_days']} days, starts a new episode"),
+        ("Outcome", "ESBL-positive sample",
+         f"Any of: a resistant result for {_join(oc['resistant_drugs'])}; a positive ESBL marker (confirmatory "
+         "test); the laboratory's ESBL-producer statement. Result strings are classed resistant or susceptible "
+         "by the lookup tables 3GCR and 3GCS; intermediate and 'susceptible with optimised dosing' count as "
+         "susceptible"),
+        ("Outcome", "Non-ESBL sample",
+         f"No positive evidence and any of: susceptible to {_join(oc['susceptible_alone_drugs'])}; a negative "
+         "ESBL marker; susceptible to both "
+         + " or both ".join(f"{a} and {b}" for a, b in oc["susceptible_pairs"])),
+        ("Outcome", "Episode status", "ESBL-positive if any sample is ESBL-positive; non-ESBL if at least one "
+                                      "sample is non-ESBL and none is positive; episodes with no status excluded"),
+        ("Exposures", "Prior hospital admission", f"Inpatient admission in the {ex['lookback_days']} days before "
+                                                  "the index admission"),
+        ("Exposures", "Prior antibiotics", f"Secondary-care antibiotic administration 1 to {ex['lookback_days']} "
+                                           "days before admission"),
+        ("Exposures", "Prior ESBL-positive culture",
+         "Any time before admission" if ex["prior_esbl_lookback_days"] is None else
+         f"In the {ex['prior_esbl_lookback_days']} days before admission"),
+        ("Exposures", "Absence of a record", "Taken as no exposure"),
+        ("Exposures", "Perioperative prophylaxis window",
+         f"IV antibacterials (route {_join(pr['iv_routes'])}) from {pr['hours_before_start']} h before surgery "
+         f"start to {pr['hours_after_stop']} h after surgery stop; agents within {pr['combine_minutes']} min of "
+         "the dose closest to surgery start form one course"),
+    ]
+    rows += [("Exposures", f"Prophylaxis agent class: {name.replace('_', ' ')}", _join(agents))
+             for name, agents in pr["agent_classes"].items()]
+    groups: dict[str, list[str]] = {}
+    for tfc, group in cfg["tfc_groups"].items():
+        groups.setdefault(group, []).append(tfc)
+    rows += [("Exposures", f"Surgical specialty: {level_label(cfg, g)}", _join(sorted(v)))
+             for g, v in groups.items()]
+    eth: dict[str, list[str]] = {}
+    for raw, group in cfg["demographics"]["ethnicity_groups"].items():
+        eth.setdefault(level_label(cfg, group) if group else "Missing", []).append(raw)
+    rows += [("Demographics", f"Ethnicity: {g}", _join(v)) for g, v in eth.items()]
+    rows += [
+        ("Comorbidity", "Charlson Comorbidity Index",
+         f"comorbidicare: ICD-10 and SNOMED CT codes from diagnoses, problems and prescriptions recorded before "
+         f"{cfg['cci']['cutoff']}; groups " + _join(level_label(cfg, g) for g in cfg["cci"]["group_labels"])),
+        ("Clinical", "Temperature and CRP", f"Value closest to the first culture within {cl['window_hours']} h, in "
+                                            "the spell and after surgery start; implausible values dropped "
+                                            "(kept: temperature {}–{} °C, CRP {}–{} mg/L)".format(
+                                                *cl["temperature"]["plausible"], *cl["crp"]["plausible"])),
+        ("Clinical", "In-hospital death", "Discharge method code " + _join(cfg["mortality"]["died_codes"])
+         + "; codes " + _join(cfg["mortality"]["unknown_codes"]) + " missing"),
+        ("Analysis", "Variable selection", f"Univariable joint Wald p < {lr['screen_p']}, or prespecified as "
+         "clinically important: " + _join(var_label(cfg, v) for v in lr["clinically_important"])),
+        ("Analysis", "Sparse categories", f"Non-reference levels with fewer than {lr['sparse']['min_events']} "
+                                          "ESBL-positive or non-ESBL episodes merged into Other"),
+    ]
+    notes = ["Generated from config.yaml, the configuration the analysis code ran with. Text values are matched "
+             "after lower-casing."]
+    return pd.DataFrame(rows, columns=["Domain", "Item", "Definition"]), notes
+
+
 # --- subgroups, diagnostics, flowchart ------------------------------------
 
 def subgroup_display(sub: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, list[str]]:

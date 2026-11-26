@@ -169,10 +169,27 @@ optimised dosing" are treated as susceptible. The rules live in
   ceftriaxone, cefpodoxime or cefixime; a positive ESBL marker (confirmatory
   test); the laboratory's ESBL-producer statement. Positive evidence wins over
   negative evidence.
-- *Non-ESBL* needs **one** of: cefpodoxime S; a negative ESBL marker;
-  cefotaxime S **and** ceftazidime S; ceftriaxone S **and** ceftazidime S.
-- *Unknown* otherwise (for example ceftriaxone S alone, `not determined`, `not
-  done`, or no result).
+- *Non-ESBL* needs **one** of: an S result for any of cefotaxime,
+  ceftazidime, ceftriaxone, cefpodoxime or cefixime; a negative ESBL marker.
+  (Decided 2026-11-26, replacing the 2026-11-17 rule below.)
+- *Unknown* otherwise (`not determined`, `not done`, strings in neither
+  lookup, or no result).
+
+**Outcome definition changed 2026-11-26: surveillance (3GC-resistance) rule.**
+The non-ESBL rule now follows antimicrobial-resistance surveillance (EARS-Net,
+WHO GLASS, UKHSA ESPAUR), which classes an isolate by third-generation
+cephalosporin resistance among the agents tested: one susceptible 3GC result
+with no resistant result is non-ESBL. Report the outcome as "3GC-resistant /
+ESBL phenotype" and state that it also captures AmpC producers. Reason: the
+2026-11-17 rule (non-ESBL only with cefpodoxime S, or cefotaxime or ceftriaxone
+S **together with** ceftazidime S) left 775 of 2,585 episodes (30%) without a
+status in the first SDE run (commit 7d27c4c), raised ESBL prevalence from
+34.5% to 39.9% and may select episodes by specimen site through
+site-specific test panels. CTX-M enzymes, the dominant ESBLs in UK E. coli and
+Klebsiella, hydrolyse cefotaxime and ceftriaxone, so a ceftriaxone-S isolate is
+unlikely to be an ESBL producer. Sensitivity analysis (TODO, not yet built):
+re-run the models with the 2026-11-17 rule (cefpodoxime S alone, or both
+members of a cefotaxime/ceftriaxone + ceftazidime pair S).
 
 Rationale: EUCAST's ESBL screening uses cefotaxime, ceftazidime and cefpodoxime
 together, because different ESBL families raise different cephalosporin MICs
@@ -426,3 +443,8 @@ VIF, and the variables dropped or collapsed.
     silently; first episode chosen by date, not by sorting the episode id;
     sparse levels merged into `other` by a fixed rule; the timing variables
     are descriptive only.
+27. CHANGE vs 2026-11-17 rule (decided 2026-11-26): an S result for any one
+    third-generation cephalosporin (cefotaxime, ceftazidime, ceftriaxone,
+    cefpodoxime, cefixime) with no positive evidence is non-ESBL, as in AMR
+    surveillance (see section 6). The 2026-11-17 rule becomes a sensitivity
+    analysis (not yet built).

@@ -37,8 +37,9 @@ sites:
     - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b'}
     - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b'}
     - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b'}
+    - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b'}   # added 2026-11-26
   # Episode site = the first of these present among the episode's samples.
-  hierarchy: [blood, urine, tips_devices, drain, wound, sputum, tissue/biopsy, other]
+  hierarchy: [blood, urine, tips_devices, drain, wound, genital, sputum, tissue/biopsy, other]
 
 # Episode table (esbl_rf.episodes.aggregate_episodes): output column -> sample-table column.
 episode_table:
@@ -459,6 +460,7 @@ labels:
     proteus mirabilis: P. mirabilis
     blood: Blood
     drain: Drain
+    genital: Genital (vaginal)
     sputum: Sputum
     tips_devices: Tips/devices
     tissue/biopsy: Tissue/biopsy

@@ -56,6 +56,8 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
         surg_start = adm + pd.Timedelta(days=1)
         dis = adm + pd.Timedelta(days=7)
         age, imd = int(rng.integers(18, 90)), int(rng.integers(1, 11))
+        if i % 20 == 0:
+            imd = "none"  # iCARE stores a missing IMD as the text 'none'
         organism = ORGANISMS[int(rng.integers(0, 4))]
         site = SITES[int(rng.integers(0, len(SITES)))]
         status = ["esbl", "non", "unknown"][int(rng.choice(3, p=[0.3, 0.6, 0.1]))]

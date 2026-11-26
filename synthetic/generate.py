@@ -63,13 +63,14 @@ def generate(out_dir: Path | str, n_patients: int = 80, seed: int = 1) -> dict[s
         status = ["esbl", "non", "unknown"][int(rng.choice(3, p=[0.3, 0.6, 0.1]))]
         surg_stop = surg_start + pd.Timedelta(minutes=int(rng.integers(45, 420)))
 
-        surgeries.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=f"e{i:03d}",
+        # Like Snowflake HASH(): a 19-digit integer, more digits than a float keeps.
+        event = 7_000_000_000_000_000_001 + i * 1_000_003
+        surgeries.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=event,
                               surgery_anchor_ts=str(surg_start), surgery_start_ts=str(surg_start),
                               surgery_stop_ts=str(surg_stop), procedure_desc="hernia repair",
                               surgical_area="abdomen", treatment_function_code_des=TFC[int(rng.integers(0, len(TFC)))]))
         first = surg_start + pd.Timedelta(days=3)
         discharge_method[spell] = 4 if rng.random() < 0.1 else (9 if rng.random() < 0.05 else 1)
-        event = f"e{i:03d}"
 
         def abx(name, when, route="IV", in_window=1):
             surgery_abx.append(dict(subject=subject, spell_identifier=spell, surgery_event_id=event,

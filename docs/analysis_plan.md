@@ -126,6 +126,13 @@ Isolate is ESBL-positive if any of:
   `03_microbiology.sql`). CHANGE, decided 2026-11-17: the manuscript code did
   not use this statement. `esbl_statement_lab` (statement anywhere in the lab
   test, any organism) is not used for labelling, only for QA.
+  FINDING 2026-11-26 (open, needs a decision): ESBL status is missing for 68%
+  of urine samples (869 of 1,275) but at most 4% at every other site, and for
+  35% of E. coli and 34% of P. mirabilis but 2-3% of Klebsiella. Likely cause:
+  cascade reporting of urinary isolates (3GCs reported only after first-line
+  resistance), so the outcome is missing not at random and complete-case
+  analysis may bias prevalence and the urine estimate upwards. Evidence, checks
+  and sensitivity analyses: `docs/discussion_notes.md` section 1.
   FINDING 2026-11-25 (open, needs a decision): the lab stores the statement in
   `ORGANISM_BUG` as its own row, not against a named organism, so `esbl_statement`
   is always 0 and the statement currently contributes nothing. How to attribute it

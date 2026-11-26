@@ -19,9 +19,9 @@ import pytest
 from esbl_rf.outcome import build_ast_rules, label_esbl_status
 
 R = ["ceftriaxone : resistant", "ceftriaxone : 4", "ceftazidime : resistant", "cefotaxime : resistant",
-     "cefpodoxime : resistant", "cefixime : resistant"]
+     "cefpodoxime : resistant", "cefixime : resistant", "cephalexin : resistant"]
 S = ["ceftriaxone : sensitive", "ceftazidime : sensitive", "ceftazidime : 4", "cefotaxime : sensitive",
-     "cefpodoxime : sensitive"]
+     "cefpodoxime : sensitive", "cephalexin : sensitive"]
 MARK = "esbl markers (ss = present)"
 
 
@@ -166,3 +166,17 @@ def test_committed_lookups_are_valid(cfg):
     r = read_lookup(cfg, "third_gen_ceph_resistant")
     s = read_lookup(cfg, "third_gen_ceph_susceptible")
     assert len(build_ast_rules(r, s)) == len(r) + len(s)
+
+
+def test_cefalexin_susceptible_is_non_esbl(cfg, rules):
+    """Decided 2026-11-26: ESBLs hydrolyse cefalexin, so cefalexin S argues against ESBL."""
+    assert label(cfg, rules, ["cephalexin : sensitive"]) == 0
+
+
+def test_cefalexin_resistant_alone_is_unknown(cfg, rules):
+    """Cefalexin R has other causes (e.g. AmpC), so it is not positive evidence."""
+    assert pd.isna(label(cfg, rules, ["cephalexin : resistant"]))
+
+
+def test_third_gen_resistance_beats_cefalexin_susceptible(cfg, rules):
+    assert label(cfg, rules, ["cephalexin : sensitive", "ceftriaxone : resistant"]) == 1

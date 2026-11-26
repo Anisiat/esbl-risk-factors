@@ -27,3 +27,5 @@ ceftazidime : <=0.5
 ceftazidime : 1
 ceftazidime : 2
 ceftazidime : 4
+cephalexin : sensitive
+cephalexin : susceptible

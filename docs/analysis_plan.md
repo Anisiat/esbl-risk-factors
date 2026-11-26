@@ -177,8 +177,9 @@ optimised dosing" are treated as susceptible. The rules live in
   test); the laboratory's ESBL-producer statement. Positive evidence wins over
   negative evidence.
 - *Non-ESBL* needs **one** of: an S result for any of cefotaxime,
-  ceftazidime, ceftriaxone, cefpodoxime or cefixime; a negative ESBL marker.
-  (Decided 2026-11-26, replacing the 2026-11-17 rule below.)
+  ceftazidime, ceftriaxone, cefpodoxime or cefixime; a cefalexin S result;
+  a negative ESBL marker. (Decided 2026-11-26, replacing the 2026-11-17 rule
+  below; cefalexin added the same day, see item 29.)
 - *Unknown* otherwise (`not determined`, `not done`, strings in neither
   lookup, or no result).
 
@@ -462,3 +463,14 @@ VIF, and the variables dropped or collapsed.
     after wound, before sputum. Other `other` sites (body-location swabs such
     as `abdomen`, unspecified `swab`, `biliary tract`, endotracheal secretions)
     are unchanged pending a decision.
+29. CHANGE (decided 2026-11-26): a cefalexin S result counts as non-ESBL
+    evidence. ESBLs hydrolyse first-generation cephalosporins, so an ESBL
+    producer is almost always cefalexin-resistant; cefalexin R is NOT
+    positive evidence (AmpC, other beta-lactamases and porin changes also
+    cause it). Reason: ESBL status was missing for 68% of urine samples,
+    consistent with cascade reporting, where 3GCs are reported only after
+    first-line resistance (see docs/discussion_notes.md section 1). Lookup
+    strings `cephalexin : sensitive` and `cephalexin : susceptible` (the lab spells it cephalexin; checked in the SDE 2026-11-26) added to
+    3GCS; check the real cefalexin strings with
+    sql/exploration/03_urine_cefalexin.sql (statement 3) and add any others.
+    Sensitivity analysis: without this rule (not yet built).

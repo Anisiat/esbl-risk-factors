@@ -16,7 +16,7 @@
 --           AT_MICROBIOLOGY_RESULTS
 --             grain: one row per (subject, lab_test_id, organism_bug, sensitivity
 --             string) for cefotaxime, ceftazidime, ceftriaxone, cefpodoxime,
---             cefixime and the ESBL marker. The string is kept exactly as in the
+--             cefixime, cephalexin (= cefalexin) and the ESBL marker. The string is kept exactly as in the
 --             source (lower-cased), e.g. 'ceftriaxone : 4'.
 -- FLAGS     has_ast_info        1 if the organism has a cephalosporin R/S result,
 --                               an ESBL marker result (not "not determined") or a
@@ -149,7 +149,9 @@ FROM AT_MICROBIOLOGY_EKP;
 -- Raw susceptibility result strings used by Python's ESBL labelling (analysis_plan
 -- section 6). Which strings count as resistant or susceptible is decided in
 -- lookups/3GCR.csv and lookups/3GCS.csv, not here, so this filter only selects the
--- drugs and the ESBL marker by name.
+-- drugs and the ESBL marker by name. Cefalexin (first generation) is included as
+-- negative evidence only (decided 2026-11-26). Joined to AT_MICROBIOLOGY_EKP so every
+-- result belongs to an exported sample, even if this statement is re-run on its own.
 CREATE OR REPLACE TABLE AT_MICROBIOLOGY_RESULTS AS
 SELECT DISTINCT
     m.SUBJECT,
@@ -157,11 +159,10 @@ SELECT DISTINCT
     m.ORGANISM_BUG,
     LOWER(TRIM(m.SENSITIVITY)) AS sensitivity
 FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
-INNER JOIN (SELECT DISTINCT SUBJECT FROM AT_ELECTIVE_SURGERY_COHORT) c ON m.SUBJECT = c.SUBJECT
-WHERE LOWER(m.ORGANISM_BUG) IN ('escherichia coli', 'klebsiella pneumoniae', 'klebsiella oxytoca', 'proteus mirabilis')
-  AND LOWER(TRIM(m.SENSITIVITY)) LIKE ANY (
+INNER JOIN AT_MICROBIOLOGY_EKP e ON m.LAB_TEST_ID = e.LAB_TEST_ID AND m.ORGANISM_BUG = e.ORGANISM_BUG
+WHERE LOWER(TRIM(m.SENSITIVITY)) LIKE ANY (
         'cefotaxime :%', 'ceftazidime :%', 'ceftriaxone :%', 'cefpodoxime :%',
-        'cefixime :%', 'esbl markers (ss = present) :%'
+        'cefixime :%', 'cephalexin :%', 'esbl markers (ss = present) :%'
   );
 
 

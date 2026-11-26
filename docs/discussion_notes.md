@@ -45,8 +45,16 @@ this run) and the urine-vs-blood odds ratio (manuscript aOR 1.36; this run
   (which agents are first-line for urine, what triggers 3GC testing, and
   whether this changed over 2015-2025).
 - Check in the data: among the unknown-status urine samples, the distribution
-  of first-line results (especially cefalexin S/R). Needs a Snowflake query,
-  because `microbiology_results.csv` keeps only 3GC and marker strings.
+  of first-line results (especially cefalexin S/R):
+  `sql/exploration/03_urine_cefalexin.sql` (Snowflake, because
+  `microbiology_results.csv` keeps only 3GC and marker strings).
+- Logic: ESBLs hydrolyse first-generation cephalosporins, so an ESBL producer
+  is almost always cefalexin-resistant. Cefalexin S therefore argues against
+  ESBL (usable negative evidence); cefalexin R does not imply ESBL (AmpC,
+  other beta-lactamases, porin changes), so it stays unknown.
+- Reporting idea: a supplementary table of initially missing status by site
+  and organism (the tables above, suppressed), explaining any cascade-informed
+  labelling. Fits RECORD's call to describe data-quality issues.
 - Sensitivity analyses: (a) complete case (current); (b) untested urinary
   isolates that are cefalexin-susceptible counted as non-ESBL; (c) analysis
   excluding urine. Report how much the urine and prophylaxis estimates move.

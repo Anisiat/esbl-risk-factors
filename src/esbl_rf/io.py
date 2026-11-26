@@ -9,6 +9,10 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+# Always read as text: 19-digit Snowflake HASH() IDs. As numbers they become floats as
+# soon as a merge adds a missing value, and a float keeps only ~16 digits.
+ALWAYS_TEXT = ("surgery_event_id",)
+
 
 def parse_datetimes(series: pd.Series, name: str, step: str) -> pd.Series:
     """Parse a column of date strings and report what failed.
@@ -53,14 +57,12 @@ def _read_csv(path: Path, step: str, date_cols: Iterable[str] = (), usecols: lis
     if not path.is_file():
         raise FileNotFoundError(f"{step}: file not found: {path}")
     text_cols = list(text_cols)
-    dtype = None
-    if text_cols:
-        # Match on the normalised (stripped, lower-case) header, as below.
-        header = {str(c).strip().lower(): c for c in pd.read_csv(path, nrows=0).columns}
-        absent = [c for c in text_cols if c not in header]
-        if absent:
-            raise ValueError(f"{step}: {path.name} is missing text column(s) {absent}; has {list(header)}")
-        dtype = {header[c]: str for c in text_cols}
+    # Match on the normalised (stripped, lower-case) header, as below.
+    header = {str(c).strip().lower(): c for c in pd.read_csv(path, nrows=0).columns}
+    absent = [c for c in text_cols if c not in header]
+    if absent:
+        raise ValueError(f"{step}: {path.name} is missing text column(s) {absent}; has {list(header)}")
+    dtype = {header[c]: str for c in [*text_cols, *ALWAYS_TEXT] if c in header}
     df = pd.read_csv(path, low_memory=False, dtype=dtype)
     # Snowflake exports upper-case headers; the pipeline uses lower-case names.
     df.columns = df.columns.astype(str).str.strip().str.lower()

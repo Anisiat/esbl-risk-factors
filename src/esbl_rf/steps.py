@@ -71,6 +71,10 @@ def run_cohort_samples(cfg: dict) -> pd.DataFrame:
     cols, status_col = cfg["columns"], cfg["columns"]["outcome"]
     key = list(cols["sample_key"])
     samples = read_raw(cfg, "spell_microbiology", date_cols=[cols["collect"], cols["admission"], cols["discharge"]])
+    imd = cfg["episode_table"]["spell_columns"]["imd_decile"]
+    is_none = samples[imd].astype("string").str.strip().str.lower().isin(["none"])
+    log.info("run_cohort_samples: %d sample row(s) have IMD 'none' (set to missing)", int(is_none.sum()))
+    samples[imd] = pd.to_numeric(samples[imd].mask(is_none), errors="raise")
     surgeries = read_raw(cfg, "surgery_cohort", date_cols=[cols["surgery_anchor"], cols["surgery_start"], cols["surgery_stop"]])
     labelled = read_checkpoint(cfg, LABELLED)[key + [status_col]]
     labelled = _status_as_int(labelled, cfg)

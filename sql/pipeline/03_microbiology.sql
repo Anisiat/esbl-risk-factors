@@ -16,7 +16,7 @@
 --           AT_MICROBIOLOGY_RESULTS
 --             grain: one row per (subject, lab_test_id, organism_bug, sensitivity
 --             string) for cefotaxime, ceftazidime, ceftriaxone, cefpodoxime,
---             cefixime, cefalexin and the ESBL marker. The string is kept exactly as in the
+--             cefixime, cephalexin (= cefalexin) and the ESBL marker. The string is kept exactly as in the
 --             source (lower-cased), e.g. 'ceftriaxone : 4'.
 -- FLAGS     has_ast_info        1 if the organism has a cephalosporin R/S result,
 --                               an ESBL marker result (not "not determined") or a
@@ -162,7 +162,7 @@ FROM ICHT_PROD.ICARE_ICHT.ICARE_MICROBIOLOGY_ANON m
 INNER JOIN AT_MICROBIOLOGY_EKP e ON m.LAB_TEST_ID = e.LAB_TEST_ID AND m.ORGANISM_BUG = e.ORGANISM_BUG
 WHERE LOWER(TRIM(m.SENSITIVITY)) LIKE ANY (
         'cefotaxime :%', 'ceftazidime :%', 'ceftriaxone :%', 'cefpodoxime :%',
-        'cefixime :%', 'cefalexin :%', 'esbl markers (ss = present) :%'
+        'cefixime :%', 'cephalexin :%', 'esbl markers (ss = present) :%'
   );
 
 

@@ -456,7 +456,7 @@ VIF, and the variables dropped or collapsed.
     cause it). Reason: ESBL status was missing for 68% of urine samples,
     consistent with cascade reporting, where 3GCs are reported only after
     first-line resistance (see docs/discussion_notes.md section 1). Lookup
-    strings `cefalexin : sensitive` and `cefalexin : susceptible` added to
+    strings `cephalexin : sensitive` and `cephalexin : susceptible` (the lab spells it cephalexin; checked in the SDE 2026-11-26) added to
     3GCS; check the real cefalexin strings with
     sql/exploration/03_urine_cefalexin.sql (statement 3) and add any others.
     Sensitivity analysis: without this rule (not yet built).

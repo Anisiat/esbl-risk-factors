@@ -77,9 +77,9 @@ outcome:
   resistant_drugs: [cefotaxime, ceftazidime, ceftriaxone, cefpodoxime, cefixime]   # any resistant result = ESBL
   # Surveillance rule (decided 2026-11-26): any one 3GC susceptible = non-ESBL. The 2026-11-17 rule
   # was [cefpodoxime] alone plus pairs [[cefotaxime, ceftazidime], [ceftriaxone, ceftazidime]].
-  # cefalexin (1st generation) added 2026-11-26 as negative evidence only: ESBLs hydrolyse it, so S argues
+  # cephalexin (= cefalexin, lab spelling; 1st generation) added 2026-11-26 as negative evidence only: ESBLs hydrolyse it, so S argues
   # against ESBL; it is NOT in resistant_drugs because cefalexin R has other causes (e.g. AmpC).
-  susceptible_alone_drugs: [cefotaxime, ceftazidime, ceftriaxone, cefpodoxime, cefixime, cefalexin]
+  susceptible_alone_drugs: [cefotaxime, ceftazidime, ceftriaxone, cefpodoxime, cefixime, cephalexin]
   susceptible_pairs: []                        # both susceptible = non-ESBL
   marker_prefix: "esbl markers (ss = present)"
   marker_positive: [sensitive, susceptible, "susceptible with optimised dosing, refer to antimicrobial policy"]

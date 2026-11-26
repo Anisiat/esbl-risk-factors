@@ -230,7 +230,7 @@ exposures.
 | Prior antibiotics 90d | pharmacy admin | any antibacterial administration (any route) 1–90 calendar days before the admission date; secondary-care administrations only | binary |
 | Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, clinical or screening sample, collected before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
-| Specimen site | microbiology | site_cleaned → groups via `config.yaml` (TODO: supply mapping; 399 episodes were missing last run, so check why) | **Blood**, Drain, Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
+| Specimen site | microbiology | site_cleaned → groups via `config.yaml: sites` | **Blood**, Drain, Genital (vaginal; added 2026-11-26), Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
 | Temperature | vital signs | value closest to the episode's first culture within ±48 h, in the spell and after surgery start; values outside 30–45 °C dropped (decided 2026-11-23) | continuous (°C); descriptive only |
 | CRP | pathology | as temperature; values outside 0–1000 mg/L dropped | continuous (mg/L); descriptive only |
 | Length of stay | episodes | discharge_date − admission_date of the spell, days | descriptive outcome |
@@ -448,3 +448,10 @@ VIF, and the variables dropped or collapsed.
     cefpodoxime, cefixime) with no positive evidence is non-ESBL, as in AMR
     surveillance (see section 6). The 2026-11-17 rule becomes a sensitivity
     analysis (not yet built).
+28. CHANGE (decided 2026-11-26): new specimen-site group `genital` for vaginal
+    samples (`vagina`, `vaginal`, `hvs`, `lvs`; e.g. high/low vaginal swab and
+    culture). In the first SDE run these were about 200 of the 437 `other`
+    samples, mostly after gynaecological surgery. Episode-site hierarchy:
+    after wound, before sputum. Other `other` sites (body-location swabs such
+    as `abdomen`, unspecified `swab`, `biliary tract`, endotracheal secretions)
+    are unchanged pending a decision.

@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 ORGANISMS = ["escherichia coli", "klebsiella pneumoniae", "klebsiella oxytoca", "proteus mirabilis"]
-SITES = [("urine", "urine culture"), ("blood", "blood culture"), ("wound swab", "wound swab"), ("pus", "wound swab")]
+SITES = [("urine", "urine culture"), ("blood", "blood culture"), ("wound swab", "wound swab"), ("pus", "wound swab"),
+         ("high vaginal swab", "high vaginal culture")]
 TFC = ["general surgery", "urology", "colorectal surgery", "trauma & orthopaedics", "vascular surgery"]
 ETHNICITY = ["White - British"] * 6 + ["Indian"] * 2 + ["Black or Black British - African"] * 2 + ["Mixed - White and Asian", "Not Stated"]
 RESISTANT = ["ceftriaxone : resistant", "ceftazidime : >16"]

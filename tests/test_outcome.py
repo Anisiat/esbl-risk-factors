@@ -2,9 +2,9 @@
 
 A sample is ESBL-positive (1) if any of cefotaxime, ceftazidime, ceftriaxone or
 cefpodoxime is in the resistant lookup, the ESBL marker is positive, or the lab
-reports the ESBL-producer statement. Non-ESBL (0) if (cefotaxime and
-ceftazidime) or (ceftriaxone and ceftazidime) are both susceptible, cefpodoxime
-is susceptible, or the marker is negative. Otherwise unknown (<NA>).
+reports the ESBL-producer statement. Non-ESBL (0) if any third-generation
+cephalosporin is susceptible (surveillance rule, decided 2026-11-26) or the
+marker is negative. Otherwise unknown (<NA>).
 
 CHANGE vs baseline: the lookups are matched as "drug : result" pairs. The
 baseline kept only the result part, so a value such as '1' listed as resistant
@@ -84,8 +84,18 @@ def test_marker_resistant_is_non_esbl(cfg, rules):
     assert label(cfg, rules, [f"{MARK} : resistant"]) == 0
 
 
-def test_one_susceptible_drug_without_its_partner_is_unknown(cfg, rules):
-    assert pd.isna(label(cfg, rules, ["ceftriaxone : sensitive"]))
+@pytest.mark.parametrize("result", ["ceftriaxone : sensitive", "cefotaxime : sensitive", "ceftazidime : sensitive"])
+def test_one_susceptible_third_gen_is_non_esbl(cfg, rules, result):
+    """Surveillance rule (decided 2026-11-26): one susceptible 3GC is enough."""
+    assert label(cfg, rules, [result]) == 0
+
+
+def test_strict_rule_needs_the_partner(cfg, rules):
+    """The 2026-11-17 rule, kept for the sensitivity analysis: ceftriaxone S alone is unknown."""
+    strict = {**cfg, "outcome": {**cfg["outcome"], "susceptible_alone_drugs": ["cefpodoxime"],
+                                 "susceptible_pairs": [["cefotaxime", "ceftazidime"], ["ceftriaxone", "ceftazidime"]]}}
+    assert pd.isna(label(strict, rules, ["ceftriaxone : sensitive"]))
+    assert label(strict, rules, ["ceftriaxone : sensitive", "ceftazidime : sensitive"]) == 0
 
 
 def test_no_results_is_unknown(cfg, rules):

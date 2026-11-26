@@ -251,8 +251,7 @@ def definitions_table(cfg: dict) -> tuple[pd.DataFrame, list[str]]:
          "susceptible"),
         ("Outcome", "Non-ESBL sample",
          f"No positive evidence and any of: susceptible to {_join(oc['susceptible_alone_drugs'])}; a negative "
-         "ESBL marker; susceptible to both "
-         + " or both ".join(f"{a} and {b}" for a, b in oc["susceptible_pairs"])),
+         "ESBL marker" + "".join(f"; susceptible to both {a} and {b}" for a, b in oc["susceptible_pairs"])),
         ("Outcome", "Episode status", "ESBL-positive if any sample is ESBL-positive; non-ESBL if at least one "
                                       "sample is non-ESBL and none is positive; episodes with no status excluded"),
         ("Exposures", "Prior hospital admission", f"Inpatient admission in the {ex['lookback_days']} days before "

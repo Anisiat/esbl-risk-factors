@@ -3,6 +3,18 @@
 Code lines only (no docstrings, no tests). Indentation matters: copy it exactly.
 Unchanged lines around each edit are given so you can find the spot.
 
+**Progress in the SDE (from screenshots):**
+- [x] 1. tables.py
+- [ ] 2. surgery.py
+- [~] 3a. config.yaml: keep list done (fix the typo `trimethroprim` → `trimethoprim`).
+  The two status lines were added under `clinical: temperature:` and spelt
+  `not_givem_statuses`: delete them there and add them under `antibiotics:` (see 3a).
+- [ ] 3b. antibiotics.py
+- [ ] 4. models.py
+- [ ] 7. lookups/3GCS.csv (new, from the "Cefpodoxime lookup missing entries" session)
+- [ ] 8. models.py zero-event guard (new, from the "Folder in SDE next steps" session)
+- [ ] SQL `00_params.sql` / `AT_PARAMS` git_hash: set to the main commit after this round
+
 ---
 
 ## 1. Charlson table S1: `src/esbl_rf/tables.py` (1 line)
@@ -43,10 +55,15 @@ Find the `keep:` line and replace it with:
   keep: [doxycycline, lymecycline, minocycline, oxytetracycline, tigecycline, sulfadiazine, metronidazole,
          co-trimoxazole, sulfamethoxazole, trimethoprim-sulfamethoxazole, tetracycline]
 ```
-Directly under `time_col: administration_ts`, add:
+In the `antibiotics:` section (NOT `clinical:`), directly under
+`time_col: administration_ts`, add:
 ```yaml
-  status_col: administration_status
-  not_given_statuses: []
+antibiotics:
+  medication_col: medication_name_short
+  route_col: route
+  time_col: administration_ts
+  status_col: administration_status      # <- new
+  not_given_statuses: []                 # <- new (check the spelling: given)
 ```
 
 ### 3b. `src/esbl_rf/antibiotics.py`, in `filter_antibiotics` (type it together with 3a)
@@ -165,15 +182,15 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing
+## 5. Check after typing (type sections 7 and 8 below first)
 
 ```bash
 python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
 ```
 ```bash
-python scripts/run_all.py --from cohort
+python scripts/run_all.py
 ```
-(Fix 2 is in the `cohort` step, so start there; `label` does not need re-running.)
+(Run everything: fix 7 changes the ESBL labels, which is the first step, `label`.)
 
 ---
 
@@ -194,4 +211,62 @@ In `config_strict.yaml` change only these lines:
 Then:
 ```bash
 python scripts/run_all.py --config config_strict.yaml
+```
+
+---
+
+## 7. Cefpodoxime / cefotaxime / cefixime susceptible rows: `lookups/3GCS.csv`
+
+The new code matches whole `drug : result` strings; the baseline matched the result
+word only, so it never needed one row per drug. Without these rows a cefpodoxime S
+result matches nothing. Paste at the end of the file (keep the quotes on the long
+lines, they contain a comma):
+```
+cefpodoxime : sensitive
+cefpodoxime : susceptible
+cefpodoxime : intermediate
+"cefpodoxime : susceptible with optimised dosing, refer to antimicrobial policy"
+cefotaxime : susceptible
+"cefotaxime : susceptible with optimised dosing, refer to antimicrobial policy"
+cefixime : susceptible
+cefixime : intermediate
+"cefixime : susceptible with optimised dosing, refer to antimicrobial policy"
+```
+Make sure the last existing line (`cephalexin : susceptible`) ends with a line break
+before you paste, so the two lines don't join.
+
+---
+
+## 8. Zero-event guard: `src/esbl_rf/models.py` (branch `models/zero-event-guard`)
+
+Stops the run with a clear message when a level has 0 events or 0 non-events
+(the genital / site "other" problem, OR 0.00), instead of a meaningless estimate.
+
+**Until the genital decision is made (option 1: Table 1 only, out of the models;
+or Firth), the models step will stop at this guard.** That is intended.
+
+8a. Paste just above `def first_episode_per_patient(`:
+```python
+def check_both_outcomes(data: pd.DataFrame, predictors: list[str], cfg: dict, where: str) -> None:
+    outcome, types = cfg["columns"]["outcome"], predictor_types(cfg)
+    bad = []
+    for var in predictors:
+        if types[var] == "continuous":
+            continue
+        counts = pd.crosstab(data[var], data[outcome]).reindex(columns=[0, 1], fill_value=0)
+        for lvl, row in counts[(counts[0] == 0) | (counts[1] == 0)].iterrows():
+            bad.append(f"{var} = {lvl} ({row[1]} events, {row[0]} non-events)")
+    if bad:
+        raise ValueError(f"{where}: level(s) with no events or no non-events cannot be estimated "
+                         f"(perfect separation): {bad}. Exclude these episodes or merge the level in config.yaml")
+
+
+```
+8b. In `univariable`, after `data = df.dropna(subset=[var])`:
+```python
+        check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
+```
+8c. In `multivariable`, after `data = df.dropna(subset=predictors)`:
+```python
+    check_both_outcomes(data, predictors, cfg, f"multivariable[{model}]")
 ```

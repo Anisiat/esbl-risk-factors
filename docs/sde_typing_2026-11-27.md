@@ -15,6 +15,7 @@ Unchanged lines around each edit are given so you can find the spot.
 - [ ] 8. models.py zero-event guard (new, from the "Folder in SDE next steps" session)
 - [ ] 9. keep 'other' site episodes + new site patterns + flowchart reset: config.yaml, steps.py, run_all.py
 - [ ] 10. why is tfc missing: config.yaml, surgery.py, steps.py (or run the quick check in 10d first, no typing)
+- [ ] 11. univariable 'not estimable' instead of stopping (models.py); definitions text (export.py, optional); cefalexin query (SQL, only if re-run)
 - [ ] SQL `00_params.sql` / `AT_PARAMS` git_hash: set to the main commit after this round
 
 ---
@@ -184,7 +185,7 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing (type sections 7 to 10 below first)
+## 5. Check after typing (type sections 7 to 11 below first)
 
 ```bash
 python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
@@ -281,13 +282,17 @@ def check_both_outcomes(data: pd.DataFrame, predictors: list[str], cfg: dict, wh
 adjustment level, and genital (16 episodes, no ESBL) merges into it by the sparse
 rule, so the OR 0.00 problem goes away. Genital keeps its own row in Table 1.
 
-9a. `config.yaml`, section `sites: groups:`, add the new words at the end of three
-patterns (inside the quotes, each new word with `\b` on both sides and a `|` before it):
+9a. `config.yaml`, section `sites: groups:`. Leave the existing patterns as they
+are, and add three new lines directly under the `genital` line (they must come
+LAST, so a specimen type such as drain, tissue or tip wins over a body location):
 ```yaml
-    - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b|\bendotracheal\b'}
-    - {label: wound, pattern: '\bwound\b|\bpus\b|\babdomen\b|\babdominal\b'}
-    - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b|\bbiliary\b'}
+    - {label: wound, pattern: '\babdomen\b|\babdominal\b'}
+    - {label: drain, pattern: '\bbiliary\b'}
+    - {label: sputum, pattern: '\bendotracheal\b'}
 ```
+(If you already added these words inside the wound / drain / sputum patterns,
+take them out again: there, 'abdominal drain' became wound and 'endotracheal tube
+tip' became sputum.)
 
 9b. `src/esbl_rf/steps.py`, in `run_episodes`, delete these two lines:
 ```python
@@ -362,4 +367,48 @@ s = pd.read_csv("data/interim/eligible_samples.csv", usecols=["treatment_functio
 m = s[s["tfc_group"].isna()]["treatment_function_code_des"].fillna("<empty>")
 print(len(m), "of", len(s), "eligible samples have no specialty")
 print(m.str.strip().str.lower().value_counts().head(20))
+```
+
+---
+
+## 11. Review fixes, round 2
+
+11a. `src/esbl_rf/models.py`, in `univariable`: a level with no events now gives
+"not estimable" for that variable instead of stopping the run. Replace
+```python
+        check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
+        X, _ = design_matrix(data, [var], cfg)
+        result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
+```
+with
+```python
+        X, _ = design_matrix(data, [var], cfg)
+        try:
+            check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
+            result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
+        except ValueError as err:
+            result, problems = None, [str(err)]
+```
+(`multivariable` still stops on such a level: leave it as typed in section 8c.)
+
+11b. Optional, `src/esbl_rf/export.py`, in `definitions_table`: without it, the
+definitions table lists wound, drain and sputum twice (once per pattern). Replace
+```python
+    rows += [("Samples", f"Specimen site: {level_label(cfg, g['label'])}",
+              f"Site or culture type contains: {_pattern_words(g['pattern'])}") for g in cfg["sites"]["groups"]]
+```
+with
+```python
+    words = {}
+    for g in cfg["sites"]["groups"]:
+        words.setdefault(g["label"], []).append(_pattern_words(g["pattern"]))
+    rows += [("Samples", f"Specimen site: {level_label(cfg, label)}", "Site or culture type contains: " + ", ".join(w))
+             for label, w in words.items()]
+```
+
+11c. Only if you re-run `sql/exploration/03_urine_cefalexin.sql`: in statement 1,
+the `NOT EXISTS (...)` must ignore cephalexin rows. Change its last line to:
+```sql
+                  WHERE r.LAB_TEST_ID = m.LAB_TEST_ID AND r.ORGANISM_BUG = m.ORGANISM_BUG
+                    AND LOWER(TRIM(r.SENSITIVITY)) NOT LIKE 'cephalexin :%');
 ```

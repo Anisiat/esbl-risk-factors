@@ -1,4 +1,4 @@
-# SDE typing sheet: 2026-11-27 (branch `review/fixes`)
+# SDE typing sheet: 2026-11-27 (everything on main since bundle 8ed8f07's hand edits)
 
 Code lines only (no docstrings, no tests). Indentation matters: copy it exactly.
 Unchanged lines around each edit are given so you can find the spot.
@@ -13,7 +13,8 @@ Unchanged lines around each edit are given so you can find the spot.
 - [ ] 4. models.py
 - [ ] 7. lookups/3GCS.csv (new, from the "Cefpodoxime lookup missing entries" session)
 - [ ] 8. models.py zero-event guard (new, from the "Folder in SDE next steps" session)
-- [ ] 9. keep 'other' site episodes + new site patterns: config.yaml, steps.py
+- [ ] 9. keep 'other' site episodes + new site patterns + flowchart reset: config.yaml, steps.py, run_all.py
+- [ ] 10. why is tfc missing: config.yaml, surgery.py, steps.py (or run the quick check in 10d first, no typing)
 - [ ] SQL `00_params.sql` / `AT_PARAMS` git_hash: set to the main commit after this round
 
 ---
@@ -183,7 +184,7 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing (type sections 7, 8 and 9 below first)
+## 5. Check after typing (type sections 7 to 10 below first)
 
 ```bash
 python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
@@ -306,3 +307,59 @@ to
 ```
 Then run the whole pipeline (section 5). Check the run log line
 `group_specimen_site: {...}`: 'other' should be smaller than before.
+
+---
+
+## 10. Why is tfc (specialty) missing?
+
+Logs, per episode, whether a missing specialty means no description (empty or
+`none`) or a description that is not in `tfc_groups` (with the names, so they can
+be added to the mapping).
+
+10a. `config.yaml`, section `episode_table: index_sample_columns:`, under `tfc: tfc_group`:
+```yaml
+    tfc_desc: treatment_function_code_des
+```
+
+10b. `src/esbl_rf/surgery.py`: paste at the end of the file:
+```python
+
+
+def check_specialty(episodes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    desc_col = "tfc_desc"
+    for col in ("tfc", desc_col):
+        if col not in episodes.columns:
+            raise ValueError(f"check_specialty: episodes is missing column '{col}'")
+    missing = episodes[episodes["tfc"].isna()]
+    desc = missing[desc_col].astype("string").str.strip().str.lower()
+    empty = desc.isna() | desc.isin(["", "none"])
+    reason = empty.map({True: "no description", False: "description not in tfc_groups"})
+    out = (pd.DataFrame({"reason": reason, desc_col: desc.where(~empty)})
+           .value_counts(dropna=False).rename("n_episodes").reset_index())
+    if len(missing):
+        log.warning("check_specialty: %d of %d episodes have no specialty: %d with no description, %d with a "
+                    "description not in tfc_groups %s", len(missing), len(episodes), int(empty.sum()),
+                    int((~empty).sum()), desc[~empty].value_counts().to_dict())
+    else:
+        log.info("check_specialty: every episode has a specialty")
+    return out
+```
+
+10c. `src/esbl_rf/steps.py`, 2 places:
+- In `from esbl_rf.surgery import ...`, add `check_specialty, ` after `attribute_surgery, `.
+- In `run_episodes`, directly above
+  `assert episodes["infection_id"].is_unique, "run_episodes: infection_id is not unique"` add:
+```python
+    check_specialty(episodes, cfg)
+```
+After the run, screenshot the `check_specialty:` line in the run log.
+
+10d. Quick check now, without typing anything (sample level, from the last run's
+checkpoint; paste in a Python cell from the repo folder):
+```python
+import pandas as pd
+s = pd.read_csv("data/interim/eligible_samples.csv", usecols=["treatment_function_code_des", "tfc_group"], dtype=str)
+m = s[s["tfc_group"].isna()]["treatment_function_code_des"].fillna("<empty>")
+print(len(m), "of", len(s), "eligible samples have no specialty")
+print(m.str.strip().str.lower().value_counts().head(20))
+```

@@ -314,7 +314,8 @@ def univariable(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
     Grain: one row per term, plus ``joint_p`` (the variable's joint Wald p-value,
     repeated on each of its rows) and ``problems``. A fit with convergence or
-    separation problems is not estimable: its OR, CI and p-values are set to
+    separation problems, or a level with no events or no non-events, is not
+    estimable: its OR, CI and p-values are set to
     missing (so it is not screened in; it can still be selected as clinically
     important, and then the multivariable model stops if it fails too).
     """
@@ -322,9 +323,12 @@ def univariable(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out = []
     for var in predictor_types(cfg):
         data = df.dropna(subset=[var])
-        check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
         X, _ = design_matrix(data, [var], cfg)
-        result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
+        try:
+            check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
+            result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
+        except ValueError as err:     # a level with no events or no non-events
+            result, problems = None, [str(err)]
         if problems:
             log.warning("univariable[%s]: not estimable, no estimates reported: %s", var, problems)
             terms = not_estimable_terms(X, "univariable", data[outcome], cfg)

@@ -58,7 +58,8 @@ def summarise_table(episodes: pd.DataFrame, blocks: dict[str, list[str]], cfg: d
     Grain: input one row per infection episode; output one row per table row:
     a first ``N`` row (episodes per group), then per variable either one row
     (continuous: median, quartiles; binary: episodes with the flag) or one row
-    per level (categorical). Columns ``<group>_n``, ``<group>_denom`` (non-missing
+    per level (categorical). Variables in ``table1.binary`` and all
+    ``table1.supplementary_conditions`` (Charlson 0/1 flags) are binary. Columns ``<group>_n``, ``<group>_denom`` (non-missing
     episodes), ``<group>_missing``, ``<group>_median``, ``<group>_q1``,
     ``<group>_q3`` for each group in ``GROUPS``. Percentages use the non-missing
     denominator; missing values are counted, not shown as a level.
@@ -83,7 +84,7 @@ def summarise_table(episodes: pd.DataFrame, blocks: dict[str, list[str]], cfg: d
             if var in t1["categorical"]:
                 kind = "categorical"
                 levels = level_order(values, var, cfg)
-            elif var in t1["binary"]:
+            elif var in t1["binary"] or var in t1["supplementary_conditions"]:
                 kind = "binary"
                 bad = values.notna() & ~values.isin([0, 1])
                 if bad.any():

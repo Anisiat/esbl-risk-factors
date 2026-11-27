@@ -152,12 +152,18 @@ antibiotics:
   medication_col: medication_name_short
   route_col: route
   time_col: administration_ts
-  # administration_status is not filtered (as in the manuscript); its values are logged
-  # in the run log. TODO: check them in the first SDE run (e.g. doses not given).
+  # Administrations whose status (lower-cased) is listed in not_given_statuses are dropped
+  # (CHANGE vs manuscript, which kept all). Its values are logged in the run log: fill the
+  # list from there (e.g. doses not given, cancelled). Empty = no filter.
+  status_col: administration_status
+  not_given_statuses: []
   non_antibiotic_suffixes: [vir, zole, ine, nan, infusion, fungin, liposomal]
   exclude: [nystatin, foscarnet, enfuvirtide, glucose, efavirenz, tenofovir disoproxil, isoniazid,
             fluconazole, posaconazole, voriconazole, dapsone]
-  keep: [doxycycline, lymecycline, minocycline, oxytetracycline, tigecycline, sulfadiazine, metronidazole]
+  # keep overrides the suffix rule. CHANGE vs manuscript: co-trimoxazole, sulfamethoxazole and
+  # tetracycline added (the manuscript dropped them via 'zole' / 'ine').
+  keep: [doxycycline, lymecycline, minocycline, oxytetracycline, tigecycline, sulfadiazine, metronidazole,
+         co-trimoxazole, sulfamethoxazole, trimethoprim-sulfamethoxazole, tetracycline]
   # Treatment agents: a prophylaxis course prefers other agents given at the same time.
   therapeutic_agents: [piperacillin-tazobactam, ciprofloxacin, meropenem, amikacin, ceftriaxone, colistin,
                        linezolid, avibactam-ceftazidime, ceftazidime, fosfomycin, cefiderocol,

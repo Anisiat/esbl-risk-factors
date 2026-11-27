@@ -152,3 +152,33 @@ def test_tidy_terms_reports_reference_only_for_levels(cfg):
     t = tidy_terms(res, "m", df["esbl_status"], cfg)
     assert t.loc[t["variable"] == "age_at_admission", "reference"].isna().all()
     assert (t["ci_lower"] < t["odds_ratio"]).all() and (t["odds_ratio"] < t["ci_upper"]).all()
+
+
+def separated(seed=2):
+    """Prior ESBL perfectly predicts the outcome (complete separation)."""
+    df = simulated(seed=seed)
+    df["esbl_status"] = df["prior_positive_esbl"].astype(int)
+    return df
+
+
+def test_separated_multivariable_stops_the_run(cfg):
+    with pytest.raises(ValueError, match="not valid"):
+        multivariable(separated(), ["prior_positive_esbl", "site"], cfg, "primary", clustered=True)
+
+
+def test_separated_univariable_term_has_no_estimate(cfg):
+    uni = univariable(separated(), cfg)
+    bad = uni[uni["variable"] == "prior_positive_esbl"].iloc[0]
+    assert bad["problems"] and pd.isna(bad["odds_ratio"]) and pd.isna(bad["joint_p"])
+    assert uni.loc[uni["variable"] == "age_at_admission", "odds_ratio"].notna().all()
+
+
+def test_separated_subgroup_is_not_estimable(cfg):
+    df = simulated()
+    gs = df["tfc"] == "general_surgery"
+    df.loc[gs, "esbl_status"] = df.loc[gs, "prior_positive_esbl"].astype(int)
+    out = subgroups(df, ["prior_positive_esbl", "site", "tfc"], cfg)
+    tfc = out[out["subgroup"] == "tfc"].set_index("stratum")
+    assert tfc.loc["general_surgery", "status"].startswith("not estimable")
+    assert pd.isna(tfc.loc["general_surgery", "odds_ratio"])
+    assert tfc.loc["vascular"]["status"].eq("ok").all()

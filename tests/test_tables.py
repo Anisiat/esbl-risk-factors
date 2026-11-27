@@ -70,3 +70,11 @@ def test_outcome_must_be_zero_or_one(cfg):
 def test_missing_column_raises(cfg):
     with pytest.raises(ValueError, match="missing column"):
         summarise_table(episodes(), {"x": ["crp"]}, cfg)
+
+
+def test_all_supplementary_charlson_conditions_are_binary(cfg):
+    """Conditions outside table1.binary (e.g. dementia) are counts with the flag, not medians."""
+    eps = episodes().assign(**{c: [1, 0, 0, 1, 0] for c in cfg["table1"]["supplementary_conditions"]})
+    t = summarise_table(eps, {"Charlson comorbidities": list(cfg["table1"]["supplementary_conditions"])}, cfg)
+    body = t[t["variable"] != "N"]
+    assert len(body) == 17 and body["kind"].eq("binary").all() and body["overall_n"].eq(2).all()

@@ -13,6 +13,7 @@ Unchanged lines around each edit are given so you can find the spot.
 - [ ] 4. models.py
 - [ ] 7. lookups/3GCS.csv (new, from the "Cefpodoxime lookup missing entries" session)
 - [ ] 8. models.py zero-event guard (new, from the "Folder in SDE next steps" session)
+- [ ] 9. keep 'other' site episodes + new site patterns: config.yaml, steps.py
 - [ ] SQL `00_params.sql` / `AT_PARAMS` git_hash: set to the main commit after this round
 
 ---
@@ -182,7 +183,7 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing (type sections 7 and 8 below first)
+## 5. Check after typing (type sections 7, 8 and 9 below first)
 
 ```bash
 python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
@@ -242,8 +243,8 @@ before you paste, so the two lines don't join.
 Stops the run with a clear message when a level has 0 events or 0 non-events
 (the genital / site "other" problem, OR 0.00), instead of a meaningless estimate.
 
-**Until the genital decision is made (option 1: Table 1 only, out of the models;
-or Firth), the models step will stop at this guard.** That is intended.
+Section 9 (keep 'other' sites) is what lets the models run past this guard: genital
+then merges into a real 'other' level that has ESBL episodes.
 
 8a. Paste just above `def first_episode_per_patient(`:
 ```python
@@ -270,3 +271,38 @@ def check_both_outcomes(data: pd.DataFrame, predictors: list[str], cfg: dict, wh
 ```python
     check_both_outcomes(data, predictors, cfg, f"multivariable[{model}]")
 ```
+
+---
+
+## 9. Keep 'other' site episodes; move recognisable sites into real groups
+
+'Other' episodes (about 290) are no longer dropped. In the models 'other' is an
+adjustment level, and genital (16 episodes, no ESBL) merges into it by the sparse
+rule, so the OR 0.00 problem goes away. Genital keeps its own row in Table 1.
+
+9a. `config.yaml`, section `sites: groups:`, add the new words at the end of three
+patterns (inside the quotes, each new word with `\b` on both sides and a `|` before it):
+```yaml
+    - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b|\bendotracheal\b'}
+    - {label: wound, pattern: '\bwound\b|\bpus\b|\babdomen\b|\babdominal\b'}
+    - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b|\bbiliary\b'}
+```
+
+9b. `src/esbl_rf/steps.py`, in `run_episodes`, delete these two lines:
+```python
+    episodes = exclude_other_site_episodes(episodes, cfg)
+    record_step(cfg, "episodes with a study specimen site", episodes, episode_col="infection_id", esbl_col=status_col)
+```
+(Leave the import and the function in `episodes.py` as they are; unused, harmless.)
+
+9c. `scripts/run_all.py`: a full run never reset the flowchart log (it only reset
+when the run *started* at `cohort`), so the removed step's row would stay. Change
+```python
+    if steps[0] == "cohort":
+```
+to
+```python
+    if "cohort" in steps:
+```
+Then run the whole pipeline (section 5). Check the run log line
+`group_specimen_site: {...}`: 'other' should be smaller than before.

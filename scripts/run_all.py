@@ -86,8 +86,8 @@ def main() -> int:
              git_hash(), platform.python_version(), versions())
 
     steps = selected_steps(args)
-    if steps[0] == "cohort":
-        reset_derivation(cfg)   # the log is rebuilt from the first cohort step
+    if "cohort" in steps:
+        reset_derivation(cfg)   # the log is rebuilt from the cohort step (also on a full run)
     for name in steps:
         log.info("--- step: %s", name)
         try:

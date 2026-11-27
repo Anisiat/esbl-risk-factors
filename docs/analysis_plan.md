@@ -238,7 +238,7 @@ exposures.
 | Prior antibiotics 90d | pharmacy admin | any antibacterial administration (any route) 1–90 calendar days before the admission date; secondary-care administrations only | binary |
 | Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, clinical or screening sample, collected before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
-| Specimen site | microbiology | site_cleaned → groups via `config.yaml: sites` | **Blood**, Drain, Genital (vaginal; added 2026-11-26), Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
+| Specimen site | microbiology | site_cleaned → groups via `config.yaml: sites` | **Blood**, Drain, Genital (vaginal; added 2026-11-26), Sputum, Tips/devices, Tissue/biopsy, Urine, Wound, Other (kept from 2026-11-27; adjustment level only) |
 | Temperature | vital signs | value closest to the episode's first culture within ±48 h, in the spell and after surgery start; values outside 30–45 °C dropped (decided 2026-11-23) | continuous (°C); descriptive only |
 | CRP | pathology | as temperature; values outside 0–1000 mg/L dropped | continuous (mg/L); descriptive only |
 | Length of stay | episodes | discharge_date − admission_date of the spell, days | descriptive outcome |

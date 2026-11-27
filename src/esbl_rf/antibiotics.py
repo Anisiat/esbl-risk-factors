@@ -26,13 +26,23 @@ def filter_antibiotics(admin: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     unless it is in ``antibiotics.keep`` (e.g. metronidazole ends in 'zole'). Same
     rule as the baseline ``filter_antibiotics``. CHANGE: names are stripped and
     lower-cased first, missing names are dropped (the baseline turned them into
-    the string 'nan'), and dropped names are logged with counts.
+    the string 'nan'), and dropped names are logged with counts. CHANGE:
+    administrations whose status is in ``antibiotics.not_given_statuses`` are
+    dropped (the baseline kept doses that were not given).
     """
     ab = cfg["antibiotics"]
     med = ab["medication_col"]
     if med not in admin.columns:
         raise ValueError(f"filter_antibiotics: missing column '{med}'")
     out = admin.copy()
+    if ab["not_given_statuses"]:
+        status = ab["status_col"]
+        if status not in out.columns:
+            raise ValueError(f"filter_antibiotics: missing column '{status}'")
+        not_given = _norm(out[status]).isin([v.lower() for v in ab["not_given_statuses"]]).fillna(False)
+        log.info("filter_antibiotics: dropped %d administration(s) not given (%s)", int(not_given.sum()),
+                 _norm(out.loc[not_given, status]).value_counts().to_dict())
+        out = out[~not_given.to_numpy()]
     out[med] = _norm(out[med])
     named = out[med].notna()
     is_non_abx = out[med].str.endswith(tuple(ab["non_antibiotic_suffixes"])) | out[med].isin(ab["exclude"])

@@ -22,6 +22,26 @@ def test_filter_keeps_antibiotics_and_listed_exceptions(cfg):
     assert list(out["medication_name_short"]) == ["cefuroxime", "metronidazole"]
 
 
+def test_filter_keeps_co_trimoxazole_and_tetracycline(cfg):
+    admin = pd.DataFrame({"medication_name_short": ["Co-trimoxazole", "Sulfamethoxazole", "Tetracycline", "Fluconazole"]})
+    out = filter_antibiotics(admin, cfg)
+    assert list(out["medication_name_short"]) == ["co-trimoxazole", "sulfamethoxazole", "tetracycline"]
+
+
+def test_filter_drops_doses_not_given(cfg):
+    cfg["antibiotics"]["not_given_statuses"] = ["not given"]
+    admin = pd.DataFrame({"medication_name_short": ["cefuroxime", "cefuroxime", "cefuroxime"],
+                          "administration_status": ["Given", " Not Given", None]})
+    out = filter_antibiotics(admin, cfg)
+    assert len(out) == 2 and "Not Given" not in set(out["administration_status"].dropna().str.strip())
+
+
+def test_status_filter_needs_the_status_column(cfg):
+    cfg["antibiotics"]["not_given_statuses"] = ["not given"]
+    with pytest.raises(ValueError, match="administration_status"):
+        filter_antibiotics(pd.DataFrame({"medication_name_short": ["cefuroxime"]}), cfg)
+
+
 @pytest.mark.parametrize("classes, label", [
     ({"cefuroxime", "limited_enterobacterales"}, "cefuroxime +/- metronidazole"),
     ({"cefuroxime", "aminoglycoside"}, "cefuroxime +/- metronidazole + aminoglycoside"),

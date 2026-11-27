@@ -216,8 +216,9 @@ def fit_logit(y: pd.Series, X: pd.DataFrame, groups: pd.Series | None = None):
     Returns
     -------
     (result, problems)
-        ``problems`` lists convergence or separation warnings (empty if none);
-        callers record them in the diagnostics.
+        ``problems`` lists convergence or separation warnings (empty if none).
+        A non-empty list means the fit is not valid. If the fit fails outright
+        (singular matrix, e.g. complete separation), ``result`` is None.
     """
     exog = sm.add_constant(X, has_constant="add")
     kwargs = {"disp": 0, "maxiter": 200}
@@ -225,7 +226,10 @@ def fit_logit(y: pd.Series, X: pd.DataFrame, groups: pd.Series | None = None):
         kwargs.update(cov_type="cluster", cov_kwds={"groups": pd.factorize(groups)[0]})
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = sm.Logit(y.astype(float), exog).fit(**kwargs)
+        try:
+            result = sm.Logit(y.astype(float), exog).fit(**kwargs)
+        except (np.linalg.LinAlgError, PerfectSeparationError) as err:
+            return None, [f"fit failed: {err}"]
     problems = [str(w.message) for w in caught if issubclass(w.category, (ConvergenceWarning, PerfectSeparationWarning))]
     if not result.mle_retvals.get("converged", True):
         problems.append("did not converge")
@@ -244,6 +248,18 @@ def tidy_terms(result, model: str, y: pd.Series, cfg: dict) -> pd.DataFrame:
         rows.append({"model": model, "variable": var, "level": level, "reference": refs.get(var) if level else None,
                      "odds_ratio": float(np.exp(result.params[term])), "ci_lower": float(np.exp(conf.loc[term, 0])),
                      "ci_upper": float(np.exp(conf.loc[term, 1])), "p_value": float(result.pvalues[term]),
+                     "n": len(y), "events": int(y.sum())})
+    return pd.DataFrame(rows, columns=TERM_COLUMNS)
+
+
+def not_estimable_terms(X: pd.DataFrame, model: str, y: pd.Series, cfg: dict) -> pd.DataFrame:
+    """Rows shaped like ``tidy_terms`` for a fit that is not valid: terms listed, estimates missing."""
+    refs = cfg["logistic_regression"]["reference_levels"]
+    rows = []
+    for term in X.columns:
+        var, level = split_term(term)
+        rows.append({"model": model, "variable": var, "level": level, "reference": refs.get(var) if level else None,
+                     "odds_ratio": np.nan, "ci_lower": np.nan, "ci_upper": np.nan, "p_value": np.nan,
                      "n": len(y), "events": int(y.sum())})
     return pd.DataFrame(rows, columns=TERM_COLUMNS)
 
@@ -277,7 +293,10 @@ def univariable(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """One cluster-robust logistic regression per predictor, on episodes with that predictor recorded.
 
     Grain: one row per term, plus ``joint_p`` (the variable's joint Wald p-value,
-    repeated on each of its rows) and ``problems``.
+    repeated on each of its rows) and ``problems``. A fit with convergence or
+    separation problems is not estimable: its OR, CI and p-values are set to
+    missing (so it is not screened in; it can still be selected as clinically
+    important, and then the multivariable model stops if it fails too).
     """
     lr, outcome = cfg["logistic_regression"], cfg["columns"]["outcome"]
     out = []
@@ -285,11 +304,14 @@ def univariable(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         data = df.dropna(subset=[var])
         X, _ = design_matrix(data, [var], cfg)
         result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
-        terms = tidy_terms(result, "univariable", data[outcome], cfg)
-        terms["joint_p"] = joint_p_value(result, var)
-        terms["problems"] = "; ".join(problems) or None
         if problems:
-            log.warning("univariable[%s]: %s", var, problems)
+            log.warning("univariable[%s]: not estimable, no estimates reported: %s", var, problems)
+            terms = not_estimable_terms(X, "univariable", data[outcome], cfg)
+            terms["joint_p"] = float("nan")
+        else:
+            terms = tidy_terms(result, "univariable", data[outcome], cfg)
+            terms["joint_p"] = joint_p_value(result, var)
+        terms["problems"] = "; ".join(problems) or None
         out.append(terms)
     return pd.concat(out, ignore_index=True)
 
@@ -324,20 +346,28 @@ def multivariable(df: pd.DataFrame, predictors: list[str], cfg: dict, model: str
     (terms, diagnostics, vif)
         ``terms``: one row per term. ``diagnostics``: one dict (n, events, EPV,
         maximum VIF, problems). ``vif``: one row per design column.
+
+    Raises
+    ------
+    ValueError
+        If the fit did not converge or shows (quasi-)separation: such a model
+        gives no valid estimates, so the run stops rather than reporting them.
     """
     lr, outcome = cfg["logistic_regression"], cfg["columns"]["outcome"]
     data = df.dropna(subset=predictors)
     X, _ = design_matrix(data, predictors, cfg)
     y = data[outcome]
     result, problems = fit_logit(y, X, data[lr["cluster_col"]] if clustered else None)
+    if problems:
+        raise ValueError(f"multivariable[{model}]: the model fit is not valid ({'; '.join(problems)}); "
+                         "its odds ratios would be meaningless. Check the model_selection and sparse-level "
+                         "output for a predictor or level with (almost) no events")
     vif = vif_table(X).assign(model=model, flagged=lambda v: v["vif"] > lr["vif_flag"])
     diag = {"model": model, "n_episodes": len(df), "n_used": len(y), "events": int(y.sum()),
             "non_events": int((y == 0).sum()), "n_parameters": X.shape[1], "epv": epv(y, X.shape[1]),
             "max_vif": float(vif["vif"].max()) if len(vif) else float("nan"),
             "n_vif_flagged": int(vif["flagged"].sum()), "clustered": clustered,
             "n_clusters": int(data[lr["cluster_col"]].nunique()), "problems": "; ".join(problems) or None}
-    if problems:
-        log.warning("multivariable[%s]: %s", model, problems)
     log.info("multivariable[%s]: n=%d, events=%d, parameters=%d, EPV=%.1f, max VIF=%.2f", model, diag["n_used"],
              diag["events"], diag["n_parameters"], diag["epv"], diag["max_vif"])
     return tidy_terms(result, model, y, cfg), diag, vif
@@ -350,7 +380,9 @@ def subgroups(df: pd.DataFrame, predictors: list[str], cfg: dict) -> pd.DataFram
     stratum that was not estimated. The stratifying variable is left out of its
     own strata. Strata with EPV below ``min_subgroup_epv`` are not fitted;
     EPV below ``stable_subgroup_epv`` is flagged as unstable. Terms with no
-    variation in a stratum are dropped and listed in ``dropped_terms``.
+    variation in a stratum are dropped and listed in ``dropped_terms``. A stratum
+    whose fit has convergence or separation problems is reported as not
+    estimable, with no odds ratios.
     """
     lr, outcome = cfg["logistic_regression"], cfg["columns"]["outcome"]
     out = []
@@ -369,14 +401,14 @@ def subgroups(df: pd.DataFrame, predictors: list[str], cfg: dict) -> pd.DataFram
             if not base["epv"] >= lr["min_subgroup_epv"]:
                 out.append(pd.DataFrame([{**base, "status": f"not estimable: EPV < {lr['min_subgroup_epv']}"}]))
                 continue
-            try:
-                result, problems = fit_logit(y, X, data[lr["cluster_col"]])
-            except (np.linalg.LinAlgError, PerfectSeparationError) as err:
-                out.append(pd.DataFrame([{**base, "status": f"not estimable: {err}"}]))
+            result, problems = fit_logit(y, X, data[lr["cluster_col"]])
+            if problems:
+                out.append(pd.DataFrame([{**base, "status": "not estimable: " + "; ".join(problems),
+                                          "problems": "; ".join(problems)}]))
                 continue
             status = "unstable: EPV < %s" % lr["stable_subgroup_epv"] if base["epv"] < lr["stable_subgroup_epv"] else "ok"
             terms = tidy_terms(result, "subgroup", y, cfg).drop(columns=["model", "n", "events"])
-            out.append(terms.assign(**base, status=status, problems="; ".join(problems) or None))
+            out.append(terms.assign(**base, status=status, problems=None))
     cols = ["subgroup", "stratum", "status", "n", "events", "n_parameters", "epv", "dropped_terms", "variable",
             "level", "reference", "odds_ratio", "ci_lower", "ci_upper", "p_value", "problems"]
     return pd.concat(out, ignore_index=True).reindex(columns=cols)

@@ -284,6 +284,18 @@ tfc_groups:
   "neurosurgery": neuro_ent
   "ent": neuro_ent
   "vascular surgery": vascular
+  # CHANGE vs manuscript (decided 2026-11-27): descriptions found unmapped in the first SDE
+  # run go to 'other' instead of missing, so complete-case models keep these patients.
+  "ophthalmology": other
+  "breast surgery": other
+  "transplantation surgery": other
+  "endocrinology": other
+  "paediatric clinical haematology": other
+  "clinical haematology": other
+  "neurology": other
+  "gastroenterology": other
+  "medical oncology": other
+  "rheumatology": other
 
 # --- Column names -------------------------------------------------------
 # Column names as they appear after esbl_rf.io lower-cases the Snowflake headers.

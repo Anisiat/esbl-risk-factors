@@ -185,10 +185,10 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing (type sections 7 to 11 below first)
+## 5. Check after typing (type sections 7 to 12 below first)
 
 ```bash
-python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
+PYTHONPATH=src python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
 ```
 ```bash
 python scripts/run_all.py
@@ -412,3 +412,23 @@ the `NOT EXISTS (...)` must ignore cephalexin rows. Change its last line to:
                   WHERE r.LAB_TEST_ID = m.LAB_TEST_ID AND r.ORGANISM_BUG = m.ORGANISM_BUG
                     AND LOWER(TRIM(r.SENSITIVITY)) NOT LIKE 'cephalexin :%');
 ```
+
+---
+
+## 12. Unmapped specialties go to 'other' (decided 2026-11-27)
+
+`config.yaml`, section `tfc_groups:`, after the line `"vascular surgery": vascular` add
+(two-space indent, like the lines above):
+```yaml
+  "ophthalmology": other
+  "breast surgery": other
+  "transplantation surgery": other
+  "endocrinology": other
+  "paediatric clinical haematology": other
+  "clinical haematology": other
+  "neurology": other
+  "gastroenterology": other
+  "medical oncology": other
+  "rheumatology": other
+```
+After the run, `check_specialty` should report only episodes with no description.

@@ -244,8 +244,8 @@ def test_concurrent_procedures_count_as_one_surgery(cfg):
 
 def test_check_specialty_splits_empty_from_unmapped(cfg):
     eps = pd.DataFrame({"tfc": ["vascular", None, None, None, None],
-                        "tfc_desc": ["Vascular Surgery", None, "none", "Breast Surgery", "breast surgery "]})
+                        "tfc_desc": ["Vascular Surgery", None, "none", "Dermatology", "dermatology "]})
     out = check_specialty(eps, cfg).set_index(["reason", "tfc_desc"])["n_episodes"]
     assert out.xs("no description", level="reason").sum() == 2
-    assert out[("description not in tfc_groups", "breast surgery")] == 2
+    assert out[("description not in tfc_groups", "dermatology")] == 2
     assert out.sum() == 4

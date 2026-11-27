@@ -503,3 +503,13 @@ VIF, and the variables dropped or collapsed.
     wins (`abdominal drain` -> drain, `abdominal tissue` -> tissue/biopsy,
     `endotracheal tube tip` -> tips_devices).
     Report the composition of `other` in a footnote.
+36. CHANGE (decided 2026-11-27): more `other` sites moved into real groups, after
+    the second SDE run showed that most `other` samples have no culture type and a
+    site that is only a body location. Skin locations (back, neck, chest, breast,
+    toe, foot, shin, sacral/sacrum, umbilicus/umbilical, stoma) -> wound (methods:
+    "swabs labelled only with a body location were classed as wound swabs");
+    `aspirate` -> drain; `bone` -> tissue/biopsy; implanted `port` (not `port site`)
+    -> tips_devices; vulva/vulval, penile and IUCD -> genital; `tracheostomy` ->
+    sputum. Unspecified swabs, throat, eye, CSF, nose, mouth, skin and `none` stay
+    `other`. Open: `recs`, `groin` and `perineum` may be screening swabs; check
+    their culture codes before deciding whether to exclude them as screening.

@@ -412,3 +412,26 @@ the `NOT EXISTS (...)` must ignore cephalexin rows. Change its last line to:
                   WHERE r.LAB_TEST_ID = m.LAB_TEST_ID AND r.ORGANISM_BUG = m.ORGANISM_BUG
                     AND LOWER(TRIM(r.SENSITIVITY)) NOT LIKE 'cephalexin :%');
 ```
+
+---
+
+## 13. More body locations into real site groups (decided 2026-11-27)
+
+First, the typo found in the SDE: the genital line was missing a `|` between
+`\bvaginal\b` and `\bhvs\b` (already fixed by hand).
+
+`config.yaml`, section `sites: groups:`. Change the `tissue/biopsy`, `tips_devices`
+and `genital` lines to:
+```yaml
+    - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b|\bbone\b'}
+    - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b|\bport\b(?!\s*site)'}
+    - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b|\bvulva\b|\bvulval\b|\bpenile\b|\biucd\b|\bintrauterine\b'}
+```
+Then replace the last three lines (the wound / drain / sputum body-location lines)
+with these three, in this order:
+```yaml
+    - {label: sputum, pattern: '\bendotracheal\b|\btracheostomy\b'}
+    - {label: drain, pattern: '\bbiliary\b|\baspirate\b'}
+    - {label: wound, pattern: '\babdomen\b|\babdominal\b|\bback\b|\bneck\b|\bchest\b|\bbreast\b|\btoe\b|\bfoot\b|\bshin\b|\bsacral\b|\bsacrum\b|\bumbilicus\b|\bumbilical\b|\bstoma\b'}
+```
+Single quotes only, and a `|` between every `\b...\b` word. Then re-run everything.

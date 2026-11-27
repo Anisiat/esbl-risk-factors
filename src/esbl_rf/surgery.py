@@ -159,3 +159,32 @@ def map_specialty(samples: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     if len(unmapped) or n_missing:
         log.warning("map_specialty: %d unmapped value(s) %s; %d missing", len(unmapped), unmapped.to_dict(), n_missing)
     return out
+
+
+def check_specialty(episodes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Say why episodes have no specialty group (``tfc``): no description, or a description not mapped.
+
+    Grain: input one row per infection episode (``tfc`` and ``tfc_desc``, from
+    ``episode_table.index_sample_columns``); output one row per reason and
+    description (``reason``, ``tfc_desc``, ``n_episodes``),
+    most frequent first. Logged as a warning; nothing is changed. A description
+    of ``'none'`` (iCARE's text for missing) counts as no description. Add
+    unmapped descriptions to ``config.yaml: tfc_groups``.
+    """
+    desc_col = "tfc_desc"
+    for col in ("tfc", desc_col):
+        if col not in episodes.columns:
+            raise ValueError(f"check_specialty: episodes is missing column '{col}'")
+    missing = episodes[episodes["tfc"].isna()]
+    desc = missing[desc_col].astype("string").str.strip().str.lower()
+    empty = desc.isna() | desc.isin(["", "none"])
+    reason = empty.map({True: "no description", False: "description not in tfc_groups"})
+    out = (pd.DataFrame({"reason": reason, desc_col: desc.where(~empty)})
+           .value_counts(dropna=False).rename("n_episodes").reset_index())
+    if len(missing):
+        log.warning("check_specialty: %d of %d episodes have no specialty: %d with no description, %d with a "
+                    "description not in tfc_groups %s", len(missing), len(episodes), int(empty.sum()),
+                    int((~empty).sum()), desc[~empty].value_counts().to_dict())
+    else:
+        log.info("check_specialty: every episode has a specialty")
+    return out

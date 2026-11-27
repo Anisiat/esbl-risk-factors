@@ -19,7 +19,7 @@ DEFAULTS = {
     "admission_ts": pd.Timestamp("2020-01-01 08:00"), "discharge_ts": pd.Timestamp("2020-02-01 08:00"),
     "age_at_admission_n": 60, "index_of_multiple_deprivation_decile": 5,
     "surgery_start_ts": pd.Timestamp("2020-01-02 08:00"), "surgery_stop_ts": pd.Timestamp("2020-01-02 10:30"),
-    "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics",
+    "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics", "treatment_function_code_des": "trauma & orthopaedics",
     "n_surgeries_before": 1, "days_from_surgery_to_sample": 3.0, "surgery_length_hours": 2.5,
     "surgery_event_id": "op1", "discharge_method": 1,
 }

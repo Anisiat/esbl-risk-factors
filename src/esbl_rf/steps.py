@@ -26,7 +26,7 @@ from esbl_rf.models import (complete_case_loss, first_episode_per_patient, multi
                             select_predictors, subgroups, univariable)
 from esbl_rf.outcome import build_ast_rules, label_esbl_status
 from esbl_rf.sites import group_specimen_site
-from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeries, map_specialty
+from esbl_rf.surgery import add_surgery_length, attribute_surgery, check_specialty, clean_surgeries, map_specialty
 from esbl_rf.tables import log_sparse_levels, summarise_table, supplement_blocks, table1_blocks
 
 log = logging.getLogger(__name__)
@@ -122,6 +122,7 @@ def run_episodes(cfg: dict) -> pd.DataFrame:
     episodes = exclude_episodes_without_status(episodes, cfg)
     record_step(cfg, "episodes with an ESBL status", episodes, episode_col="infection_id", esbl_col=status_col)
 
+    check_specialty(episodes, cfg)
     assert episodes["infection_id"].is_unique, "run_episodes: infection_id is not unique"
     assert episodes[status_col].isin([0, 1]).all(), "run_episodes: outcome must be 0 or 1 in every episode"
     if episodes.empty:

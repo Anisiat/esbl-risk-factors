@@ -59,6 +59,7 @@ episode_table:
     procedure_desc: procedure_desc
     surgical_area: surgical_area
     tfc: tfc_group
+    tfc_desc: treatment_function_code_des   # kept so check_specialty can say why tfc is missing
     n_surgeries: n_surgeries_before
     surgery_length: surgery_length_hours   # hours, from esbl_rf.surgery.add_surgery_length
     min_days_from_surgery_to_infection: days_from_surgery_to_sample

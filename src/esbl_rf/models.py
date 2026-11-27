@@ -129,6 +129,26 @@ def merge_sparse_levels(df: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, pd.D
     return out, merged
 
 
+def check_both_outcomes(data: pd.DataFrame, predictors: list[str], cfg: dict, where: str) -> None:
+    """Raise if a level of a categorical or binary predictor has no events or no non-events.
+
+    Such a level is perfectly separated: its odds ratio cannot be estimated and the
+    fit returns 0 or infinity (or a singular matrix). Checked on the data each
+    model actually uses (after complete-case filtering).
+    """
+    outcome, types = cfg["columns"]["outcome"], predictor_types(cfg)
+    bad = []
+    for var in predictors:
+        if types[var] == "continuous":
+            continue
+        counts = pd.crosstab(data[var], data[outcome]).reindex(columns=[0, 1], fill_value=0)
+        for lvl, row in counts[(counts[0] == 0) | (counts[1] == 0)].iterrows():
+            bad.append(f"{var} = {lvl} ({row[1]} events, {row[0]} non-events)")
+    if bad:
+        raise ValueError(f"{where}: level(s) with no events or no non-events cannot be estimated "
+                         f"(perfect separation): {bad}. Exclude these episodes or merge the level in config.yaml")
+
+
 def first_episode_per_patient(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Keep each patient's earliest episode (by ``order_col``, ties by ``infection_id``).
 
@@ -302,6 +322,7 @@ def univariable(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out = []
     for var in predictor_types(cfg):
         data = df.dropna(subset=[var])
+        check_both_outcomes(data, [var], cfg, f"univariable[{var}]")
         X, _ = design_matrix(data, [var], cfg)
         result, problems = fit_logit(data[outcome], X, data[lr["cluster_col"]])
         if problems:
@@ -355,6 +376,7 @@ def multivariable(df: pd.DataFrame, predictors: list[str], cfg: dict, model: str
     """
     lr, outcome = cfg["logistic_regression"], cfg["columns"]["outcome"]
     data = df.dropna(subset=predictors)
+    check_both_outcomes(data, predictors, cfg, f"multivariable[{model}]")
     X, _ = design_matrix(data, predictors, cfg)
     y = data[outcome]
     result, problems = fit_logit(y, X, data[lr["cluster_col"]] if clustered else None)

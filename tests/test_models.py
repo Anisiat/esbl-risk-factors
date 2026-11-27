@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from esbl_rf.models import (complete_case_loss, design_matrix, epv, first_episode_per_patient, fit_logit,
+from esbl_rf.models import (check_both_outcomes, complete_case_loss, design_matrix, epv, first_episode_per_patient, fit_logit,
                             joint_p_value, merge_sparse_levels, multivariable, prepare_model_data, select_predictors,
                             subgroups, tidy_terms, univariable)
 
@@ -155,22 +155,23 @@ def test_tidy_terms_reports_reference_only_for_levels(cfg):
 
 
 def separated(seed=2):
-    """Prior ESBL perfectly predicts the outcome (complete separation)."""
+    """Age perfectly predicts the outcome (complete separation on a continuous predictor,
+    which check_both_outcomes does not look at)."""
     df = simulated(seed=seed)
-    df["esbl_status"] = df["prior_positive_esbl"].astype(int)
+    df["esbl_status"] = (df["age_at_admission"] > 50).astype(int)
     return df
 
 
 def test_separated_multivariable_stops_the_run(cfg):
     with pytest.raises(ValueError, match="not valid"):
-        multivariable(separated(), ["prior_positive_esbl", "site"], cfg, "primary", clustered=True)
+        multivariable(separated(), ["age_at_admission", "site"], cfg, "primary", clustered=True)
 
 
 def test_separated_univariable_term_has_no_estimate(cfg):
     uni = univariable(separated(), cfg)
-    bad = uni[uni["variable"] == "prior_positive_esbl"].iloc[0]
+    bad = uni[uni["variable"] == "age_at_admission"].iloc[0]
     assert bad["problems"] and pd.isna(bad["odds_ratio"]) and pd.isna(bad["joint_p"])
-    assert uni.loc[uni["variable"] == "age_at_admission", "odds_ratio"].notna().all()
+    assert uni.loc[uni["variable"] == "imd_decile", "odds_ratio"].notna().all()
 
 
 def test_separated_subgroup_is_not_estimable(cfg):
@@ -182,3 +183,43 @@ def test_separated_subgroup_is_not_estimable(cfg):
     assert tfc.loc["general_surgery", "status"].startswith("not estimable")
     assert pd.isna(tfc.loc["general_surgery", "odds_ratio"])
     assert tfc.loc["vascular"]["status"].eq("ok").all()
+
+
+def test_level_with_no_events_stops_the_model(cfg):
+    """16 genital episodes, none ESBL, gave OR 0.00 (0.00-0.00) in the SDE run of 2026-11-26."""
+    df = simulated()
+    df.loc[df.index[:16], ["site", "esbl_status"]] = ["other", 0]
+    with pytest.raises(ValueError, match=r"multivariable\[primary\].*site = other \(0 events, 16 non-events\)"):
+        multivariable(df, ["prior_positive_esbl", "site"], cfg, "primary", clustered=True)
+    with pytest.raises(ValueError, match=r"univariable\[site\]"):
+        univariable(df, cfg)
+
+
+def test_level_with_no_non_events_stops_the_model(cfg):
+    df = simulated()
+    df.loc[df.index[:12], ["site", "esbl_status"]] = ["other", 1]
+    with pytest.raises(ValueError, match=r"site = other \(12 events, 0 non-events\)"):
+        check_both_outcomes(df, ["site"], cfg, "test")
+
+
+def test_separation_checked_after_complete_case(cfg):
+    """A level can lose all its events only once rows with missing values are dropped."""
+    df = simulated()
+    df.loc[df.index[:20], "site"] = "other"
+    df.loc[df.index[:20], "esbl_status"] = [1] * 5 + [0] * 15
+    df.loc[df.index[:5], "imd_decile"] = np.nan
+    check_both_outcomes(df, ["site"], cfg, "test")
+    with pytest.raises(ValueError, match="site = other"):
+        multivariable(df, ["site", "imd_decile"], cfg, "primary", clustered=True)
+
+
+def test_binary_predictor_separation_is_caught(cfg):
+    df = simulated()
+    df["past_abx"] = 0.0
+    df.loc[df["esbl_status"] == 1, "past_abx"] = 1.0
+    with pytest.raises(ValueError, match="past_abx"):
+        check_both_outcomes(df, ["past_abx"], cfg, "test")
+
+
+def test_ordinary_data_passes(cfg):
+    check_both_outcomes(simulated(), ["site", "prior_positive_esbl", "age_at_admission"], cfg, "test")

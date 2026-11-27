@@ -11,7 +11,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from esbl_rf.episodes import aggregate_episodes, exclude_episodes_without_status, exclude_other_site_episodes
+from esbl_rf.episodes import aggregate_episodes, exclude_episodes_without_status
 
 DEFAULTS = {
     "subject": "p1", "spell_identifier": "s1", "organism_bug": "escherichia coli", "infection_id": "e1",
@@ -150,10 +150,10 @@ def test_episodes_without_status_are_excluded(cfg):
     assert exclude_episodes_without_status(eps, cfg)["infection_id"].tolist() == ["e2"]
 
 
-def test_other_site_episodes_are_excluded(cfg):
+def test_all_other_site_episode_is_kept_as_other(cfg):
     eps = aggregate_episodes(make({"collect_ts": "2020-01-05", "site_grouped": "other"},
                                   {"collect_ts": "2020-01-06", "infection_id": "e2", "site_grouped": "blood"}), cfg)
-    assert exclude_other_site_episodes(eps, cfg)["infection_id"].tolist() == ["e2"]
+    assert eps.set_index("infection_id")["site"].to_dict() == {"e1": "other", "e2": "blood"}
 
 
 def test_surgery_length_comes_from_first_sample(cfg):

@@ -56,7 +56,7 @@ def test_full_run_produces_every_checkpoint(run_cfg):
     assert set(out["esbl_status"].unique()) <= {0, 1}
     assert {"ethnicity_desc", "gender", "inpatient_exposure_90d", "prior_positive_esbl"} <= set(out.columns)
     assert out["inpatient_exposure_90d"].sum() > 0 and out["prior_positive_esbl"].sum() > 0
-    assert out["site"].ne("other").all()
+    assert out["site"].notna().all()
 
     steps = derivation_table(run_cfg)
     assert steps["n_patients"].is_monotonic_decreasing

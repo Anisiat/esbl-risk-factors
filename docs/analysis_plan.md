@@ -410,6 +410,7 @@ VIF, and the variables dropped or collapsed.
     first). An episode is excluded if its resolved site is `other`, that is, all
     its samples were `other`. `other` counts towards the episode span and
     `n_samples` but not towards `n_sites`; it ranks last in the site hierarchy.
+    SUPERSEDED 2026-11-27 (item 35): `other` episodes are now kept.
 18. Demographics (decided 2026-11-18): the three patient-specific ethnicity
     overrides in the manuscript code are removed (patient-level data does not
     belong in released code). Ethnicity is grouped from the `ethnicity_desc` values
@@ -490,3 +491,12 @@ VIF, and the variables dropped or collapsed.
     matching the result word alone. Added the word results (sensitive,
     susceptible, intermediate, susceptible with optimised dosing) for these three
     drugs; MIC values still need checking against the SDE strings.
+35. CHANGE (decided 2026-11-27): episodes whose samples are all `other` are kept
+    (about 290 in the SDE run; previously excluded at the flowchart step
+    "episodes with a study specimen site", item 17). In the models `other` is an
+    adjustment (nuisance) level whose OR is not interpreted; sparse site levels,
+    such as genital (16 episodes, no ESBL), merge into it by the usual sparse
+    rule, which avoids perfect separation. Recognisable `other` sites are moved
+    into real groups: `abdomen` / `abdominal` -> wound, `biliary` -> drain,
+    `endotracheal` -> sputum. Unspecified swabs and throat swabs stay `other`.
+    Report the composition of `other` in a footnote.

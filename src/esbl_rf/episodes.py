@@ -162,11 +162,3 @@ def exclude_episodes_without_status(episodes: pd.DataFrame, cfg: dict) -> pd.Dat
     log.info("exclude_episodes_without_status: dropped %d of %d episodes", len(episodes) - len(kept), len(episodes))
     return kept
 
-
-def exclude_other_site_episodes(episodes: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    """Drop episodes whose resolved site is ``sites.other_label`` (grain: one row per episode)."""
-    if "site" not in episodes.columns:
-        raise ValueError("exclude_other_site_episodes: missing column 'site'")
-    kept = episodes[episodes["site"] != cfg["sites"]["other_label"]].copy()
-    log.info("exclude_other_site_episodes: dropped %d of %d episodes", len(episodes) - len(kept), len(episodes))
-    return kept

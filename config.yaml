@@ -161,9 +161,10 @@ antibiotics:
   medication_col: medication_name_short
   route_col: route
   time_col: administration_ts
-  # Administrations whose status (lower-cased) is listed in not_given_statuses are dropped
-  # (CHANGE vs manuscript, which kept all). Its values are logged in the run log: fill the
-  # list from there (e.g. doses not given, cancelled). Empty = no filter.
+  # Administrations whose status (lower-cased) is listed in not_given_statuses are dropped.
+  # Empty = no filter. Decided 2026-11-27: kept empty (as in the manuscript), so every row is
+  # treated as given. The SDE data has only 'administered' and 'none' (iCARE's missing value),
+  # with no not-given status; this table holds charted doses, not prescriptions.
   status_col: administration_status
   not_given_statuses: []
   non_antibiotic_suffixes: [vir, zole, ine, nan, infusion, fungin, liposomal]

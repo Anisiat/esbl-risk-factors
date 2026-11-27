@@ -22,7 +22,8 @@ FROM AT_ELECTIVE_SPELL_MICROBIOLOGY m
 WHERE LOWER(m.SITE) LIKE '%urin%'
   AND m.esbl_statement_lab = 0
   AND NOT EXISTS (SELECT 1 FROM AT_MICROBIOLOGY_RESULTS r
-                  WHERE r.LAB_TEST_ID = m.LAB_TEST_ID AND r.ORGANISM_BUG = m.ORGANISM_BUG);
+                  WHERE r.LAB_TEST_ID = m.LAB_TEST_ID AND r.ORGANISM_BUG = m.ORGANISM_BUG
+                    AND LOWER(TRIM(r.SENSITIVITY)) NOT LIKE 'cephalexin :%');   -- 3GC / marker rows only
 
 -- 2. Which antibiotics were reported for them (one row per antibiotic).
 SELECT SPLIT_PART(LOWER(TRIM(x.SENSITIVITY)), ' :', 1)  AS antibiotic,

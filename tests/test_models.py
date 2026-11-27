@@ -185,14 +185,14 @@ def test_separated_subgroup_is_not_estimable(cfg):
     assert tfc.loc["vascular"]["status"].eq("ok").all()
 
 
-def test_level_with_no_events_stops_the_model(cfg):
+def test_level_with_no_events_stops_the_multivariable_model(cfg):
     """16 genital episodes, none ESBL, gave OR 0.00 (0.00-0.00) in the SDE run of 2026-11-26."""
     df = simulated()
     df.loc[df.index[:16], ["site", "esbl_status"]] = ["other", 0]
     with pytest.raises(ValueError, match=r"multivariable\[primary\].*site = other \(0 events, 16 non-events\)"):
         multivariable(df, ["prior_positive_esbl", "site"], cfg, "primary", clustered=True)
-    with pytest.raises(ValueError, match=r"univariable\[site\]"):
-        univariable(df, cfg)
+    uni = univariable(df, cfg)                 # univariable reports it instead of stopping
+    assert uni.loc[uni["variable"] == "site", "odds_ratio"].isna().all()
 
 
 def test_level_with_no_non_events_stops_the_model(cfg):
@@ -223,3 +223,14 @@ def test_binary_predictor_separation_is_caught(cfg):
 
 def test_ordinary_data_passes(cfg):
     check_both_outcomes(simulated(), ["site", "prior_positive_esbl", "age_at_admission"], cfg, "test")
+
+
+def test_univariable_zero_event_level_is_not_estimable_not_a_crash(cfg):
+    df = simulated()
+    df.loc[df["site"] == "wound", "esbl_status"] = 0
+    uni = univariable(df, cfg)
+    site = uni[uni["variable"] == "site"]
+    assert site["odds_ratio"].isna().all() and site["problems"].str.contains("no events").all()
+    assert uni.loc[uni["variable"] == "prior_positive_esbl", "odds_ratio"].notna().all()
+    with pytest.raises(ValueError, match="no events"):
+        multivariable(df, ["prior_positive_esbl", "site"], cfg, "primary", clustered=True)

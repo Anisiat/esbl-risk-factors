@@ -236,8 +236,11 @@ def definitions_table(cfg: dict) -> tuple[pd.DataFrame, list[str]]:
         ("Samples", "Screening samples excluded",
          f"Culture codes {_join(se['screening']['culture_codes'])}; sites {_join(se['screening']['rectal_sites'])}"),
     ]
-    rows += [("Samples", f"Specimen site: {level_label(cfg, g['label'])}",
-              f"Site or culture type contains: {_pattern_words(g['pattern'])}") for g in cfg["sites"]["groups"]]
+    words: dict[str, list[str]] = {}            # a label can have several patterns (body-location rules last)
+    for g in cfg["sites"]["groups"]:
+        words.setdefault(g["label"], []).append(_pattern_words(g["pattern"]))
+    rows += [("Samples", f"Specimen site: {level_label(cfg, label)}", "Site or culture type contains: " + ", ".join(w))
+             for label, w in words.items()]
     rows += [
         ("Samples", "Episode specimen site", "First present in the order "
          + _join(level_label(cfg, s) for s in cfg["sites"]["hierarchy"])),

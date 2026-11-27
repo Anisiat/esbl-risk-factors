@@ -499,4 +499,7 @@ VIF, and the variables dropped or collapsed.
     rule, which avoids perfect separation. Recognisable `other` sites are moved
     into real groups: `abdomen` / `abdominal` -> wound, `biliary` -> drain,
     `endotracheal` -> sputum. Unspecified swabs and throat swabs stay `other`.
+    These body-location words are matched last, so a recognised specimen type
+    wins (`abdominal drain` -> drain, `abdominal tissue` -> tissue/biopsy,
+    `endotracheal tube tip` -> tips_devices).
     Report the composition of `other` in a footnote.

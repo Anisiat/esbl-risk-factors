@@ -32,13 +32,15 @@ sites:
   groups:
     - {label: blood, pattern: '\bblood\b'}
     - {label: urine, pattern: '\burine\b|\burin\b'}
-    - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b'}
-    - {label: wound, pattern: '\bwound\b|\bpus\b'}
-    - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b'}
+    - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b|\bendotracheal\b'}   # endotracheal added 2026-11-27
+    - {label: wound, pattern: '\bwound\b|\bpus\b|\babdomen\b|\babdominal\b'}   # abdomen/abdominal added 2026-11-27
+    - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b|\bbiliary\b'}   # biliary added 2026-11-27
     - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b'}
     - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b'}
     - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b'}   # added 2026-11-26
-  # Episode site = the first of these present among the episode's samples.
+  # Episode site = the first of these present among the episode's samples. Episodes whose
+  # samples are all 'other' are kept (decided 2026-11-27); in the models 'other' is an
+  # adjustment (nuisance) level, and sparse levels such as genital merge into it.
   hierarchy: [blood, urine, tips_devices, drain, wound, genital, sputum, tissue/biopsy, other]
 
 # Episode table (esbl_rf.episodes.aggregate_episodes): output column -> sample-table column.
@@ -57,6 +59,7 @@ episode_table:
     procedure_desc: procedure_desc
     surgical_area: surgical_area
     tfc: tfc_group
+    tfc_desc: treatment_function_code_des   # kept so check_specialty can say why tfc is missing
     n_surgeries: n_surgeries_before
     surgery_length: surgery_length_hours   # hours, from esbl_rf.surgery.add_surgery_length
     min_days_from_surgery_to_infection: days_from_surgery_to_sample

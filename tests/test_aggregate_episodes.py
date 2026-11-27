@@ -11,7 +11,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from esbl_rf.episodes import aggregate_episodes, exclude_episodes_without_status, exclude_other_site_episodes
+from esbl_rf.episodes import aggregate_episodes, exclude_episodes_without_status
 
 DEFAULTS = {
     "subject": "p1", "spell_identifier": "s1", "organism_bug": "escherichia coli", "infection_id": "e1",
@@ -19,7 +19,7 @@ DEFAULTS = {
     "admission_ts": pd.Timestamp("2020-01-01 08:00"), "discharge_ts": pd.Timestamp("2020-02-01 08:00"),
     "age_at_admission_n": 60, "index_of_multiple_deprivation_decile": 5,
     "surgery_start_ts": pd.Timestamp("2020-01-02 08:00"), "surgery_stop_ts": pd.Timestamp("2020-01-02 10:30"),
-    "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics",
+    "procedure_desc": "knee", "surgical_area": "ortho", "tfc_group": "ortho_plastics", "treatment_function_code_des": "trauma & orthopaedics",
     "n_surgeries_before": 1, "days_from_surgery_to_sample": 3.0, "surgery_length_hours": 2.5,
     "surgery_event_id": "op1", "discharge_method": 1,
 }
@@ -150,10 +150,10 @@ def test_episodes_without_status_are_excluded(cfg):
     assert exclude_episodes_without_status(eps, cfg)["infection_id"].tolist() == ["e2"]
 
 
-def test_other_site_episodes_are_excluded(cfg):
+def test_all_other_site_episode_is_kept_as_other(cfg):
     eps = aggregate_episodes(make({"collect_ts": "2020-01-05", "site_grouped": "other"},
                                   {"collect_ts": "2020-01-06", "infection_id": "e2", "site_grouped": "blood"}), cfg)
-    assert exclude_other_site_episodes(eps, cfg)["infection_id"].tolist() == ["e2"]
+    assert eps.set_index("infection_id")["site"].to_dict() == {"e1": "other", "e2": "blood"}
 
 
 def test_surgery_length_comes_from_first_sample(cfg):

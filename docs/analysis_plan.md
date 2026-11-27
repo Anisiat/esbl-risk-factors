@@ -238,7 +238,7 @@ exposures.
 | Prior antibiotics 90d | pharmacy admin | any antibacterial administration (any route) 1–90 calendar days before the admission date; secondary-care administrations only | binary |
 | Prior ESBL-positive culture | microbiology | any ESBL-positive isolate (§6 rule) of the four study organisms, any site, clinical or screening sample, collected before the index admission; lookback = all available history (decided 2026-11-13). Same phenotype and organism set as the outcome; limitation: ESBL in other Enterobacterales is not counted | binary |
 | Organism | microbiology | index organism | **E. coli**, K. pneumoniae, K. oxytoca, P. mirabilis |
-| Specimen site | microbiology | site_cleaned → groups via `config.yaml: sites` | **Blood**, Drain, Genital (vaginal; added 2026-11-26), Sputum, Tips/devices, Tissue/biopsy, Urine, Wound |
+| Specimen site | microbiology | site_cleaned → groups via `config.yaml: sites` | **Blood**, Drain, Genital (vaginal; added 2026-11-26), Sputum, Tips/devices, Tissue/biopsy, Urine, Wound, Other (kept from 2026-11-27; adjustment level only) |
 | Temperature | vital signs | value closest to the episode's first culture within ±48 h, in the spell and after surgery start; values outside 30–45 °C dropped (decided 2026-11-23) | continuous (°C); descriptive only |
 | CRP | pathology | as temperature; values outside 0–1000 mg/L dropped | continuous (mg/L); descriptive only |
 | Length of stay | episodes | discharge_date − admission_date of the spell, days | descriptive outcome |
@@ -410,6 +410,7 @@ VIF, and the variables dropped or collapsed.
     first). An episode is excluded if its resolved site is `other`, that is, all
     its samples were `other`. `other` counts towards the episode span and
     `n_samples` but not towards `n_sites`; it ranks last in the site hierarchy.
+    SUPERSEDED 2026-11-27 (item 35): `other` episodes are now kept.
 18. Demographics (decided 2026-11-18): the three patient-specific ethnicity
     overrides in the manuscript code are removed (patient-level data does not
     belong in released code). Ethnicity is grouped from the `ethnicity_desc` values
@@ -490,3 +491,12 @@ VIF, and the variables dropped or collapsed.
     matching the result word alone. Added the word results (sensitive,
     susceptible, intermediate, susceptible with optimised dosing) for these three
     drugs; MIC values still need checking against the SDE strings.
+35. CHANGE (decided 2026-11-27): episodes whose samples are all `other` are kept
+    (about 290 in the SDE run; previously excluded at the flowchart step
+    "episodes with a study specimen site", item 17). In the models `other` is an
+    adjustment (nuisance) level whose OR is not interpreted; sparse site levels,
+    such as genital (16 episodes, no ESBL), merge into it by the usual sparse
+    rule, which avoids perfect separation. Recognisable `other` sites are moved
+    into real groups: `abdomen` / `abdominal` -> wound, `biliary` -> drain,
+    `endotracheal` -> sputum. Unspecified swabs and throat swabs stay `other`.
+    Report the composition of `other` in a footnote.

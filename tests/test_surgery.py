@@ -9,7 +9,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from esbl_rf.surgery import attribute_surgery
+from esbl_rf.surgery import attribute_surgery, check_specialty
 
 EC = "escherichia coli"
 
@@ -240,3 +240,12 @@ def test_concurrent_procedures_count_as_one_surgery(cfg):
     flipped = attribute_surgery(s, g.iloc[::-1], cfg)
     assert out["n_surgeries_before"].iloc[0] == 2
     assert out["procedure_desc"].iloc[0] == flipped["procedure_desc"].iloc[0] == "stoma formation"
+
+
+def test_check_specialty_splits_empty_from_unmapped(cfg):
+    eps = pd.DataFrame({"tfc": ["vascular", None, None, None, None],
+                        "tfc_desc": ["Vascular Surgery", None, "none", "Breast Surgery", "breast surgery "]})
+    out = check_specialty(eps, cfg).set_index(["reason", "tfc_desc"])["n_episodes"]
+    assert out.xs("no description", level="reason").sum() == 2
+    assert out[("description not in tfc_groups", "breast surgery")] == 2
+    assert out.sum() == 4

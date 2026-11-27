@@ -19,15 +19,14 @@ from esbl_rf.demographics import attach_demographics, clean_demographics, merge_
 from esbl_rf.eligibility import eligibility_flags, exclude_screening_samples
 from esbl_rf.export import (definitions_table, diagnostics_display, flowchart_display, forest_plot, subgroup_display, table1_display,
                              table2_display, write_tables)
-from esbl_rf.episodes import (aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status,
-                              exclude_other_site_episodes)
+from esbl_rf.episodes import aggregate_episodes, assign_infection_episodes, exclude_episodes_without_status
 from esbl_rf.exposures import flag_prior_esbl, flag_prior_inpatient
 from esbl_rf.io import read_checkpoint, read_lookup, read_raw, write_checkpoint
 from esbl_rf.models import (complete_case_loss, first_episode_per_patient, multivariable, prepare_model_data,
                             select_predictors, subgroups, univariable)
 from esbl_rf.outcome import build_ast_rules, label_esbl_status
 from esbl_rf.sites import group_specimen_site
-from esbl_rf.surgery import add_surgery_length, attribute_surgery, clean_surgeries, map_specialty
+from esbl_rf.surgery import add_surgery_length, attribute_surgery, check_specialty, clean_surgeries, map_specialty
 from esbl_rf.tables import log_sparse_levels, summarise_table, supplement_blocks, table1_blocks
 
 log = logging.getLogger(__name__)
@@ -122,9 +121,8 @@ def run_episodes(cfg: dict) -> pd.DataFrame:
     episodes = aggregate_episodes(samples, cfg)
     episodes = exclude_episodes_without_status(episodes, cfg)
     record_step(cfg, "episodes with an ESBL status", episodes, episode_col="infection_id", esbl_col=status_col)
-    episodes = exclude_other_site_episodes(episodes, cfg)
-    record_step(cfg, "episodes with a study specimen site", episodes, episode_col="infection_id", esbl_col=status_col)
 
+    check_specialty(episodes, cfg)
     assert episodes["infection_id"].is_unique, "run_episodes: infection_id is not unique"
     assert episodes[status_col].isin([0, 1]).all(), "run_episodes: outcome must be 0 or 1 in every episode"
     if episodes.empty:

@@ -180,3 +180,14 @@ def test_cefalexin_resistant_alone_is_unknown(cfg, rules):
 
 def test_third_gen_resistance_beats_cefalexin_susceptible(cfg, rules):
     assert label(cfg, rules, ["cephalexin : sensitive", "ceftriaxone : resistant"]) == 1
+
+
+def test_every_susceptible_alone_drug_has_word_results_in_the_real_lookup(cfg):
+    """The lookup matches whole 'drug : result' strings, so each drug needs its own S rows."""
+    from esbl_rf.io import read_lookup
+    rules = build_ast_rules(read_lookup(cfg, "third_gen_ceph_resistant"), read_lookup(cfg, "third_gen_ceph_susceptible"))
+    listed = set(read_lookup(cfg, "third_gen_ceph_susceptible").iloc[:, 0].str.strip())
+    missing = [f"{d} : {r}" for d in cfg["outcome"]["susceptible_alone_drugs"] for r in ("sensitive", "susceptible")
+               if f"{d} : {r}" not in listed]
+    assert not missing, missing
+    assert len(rules) > 0

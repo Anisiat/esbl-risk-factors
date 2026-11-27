@@ -29,3 +29,12 @@ ceftazidime : 2
 ceftazidime : 4
 cephalexin : sensitive
 cephalexin : susceptible
+cefpodoxime : sensitive
+cefpodoxime : susceptible
+cefpodoxime : intermediate
+"cefpodoxime : susceptible with optimised dosing, refer to antimicrobial policy"
+cefotaxime : susceptible
+"cefotaxime : susceptible with optimised dosing, refer to antimicrobial policy"
+cefixime : susceptible
+cefixime : intermediate
+"cefixime : susceptible with optimised dosing, refer to antimicrobial policy"

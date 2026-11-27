@@ -484,3 +484,9 @@ VIF, and the variables dropped or collapsed.
 32. Table S1 shows all 17 Charlson conditions as n (%) (10 were shown as
     median [IQR] of a 0/1 flag).
 33. `n_surgeries` counts distinct surgery events, not procedure rows.
+34. 3GCS lookup coverage (2026-11-27): cefpodoxime had no susceptible rows and
+    cefotaxime / cefixime lacked some word results, because the new code matches
+    whole "drug : result" strings (item 11) and the baseline lookup relied on
+    matching the result word alone. Added the word results (sensitive,
+    susceptible, intermediate, susceptible with optimised dosing) for these three
+    drugs; MIC values still need checking against the SDE strings.

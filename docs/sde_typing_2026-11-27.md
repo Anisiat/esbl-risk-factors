@@ -185,7 +185,7 @@ and in the last line of that loop change `problems="; ".join(problems) or None` 
 
 ---
 
-## 5. Check after typing (type sections 7 to 12 below first)
+## 5. Check after typing (type sections 7 to 13 below first)
 
 ```bash
 PYTHONPATH=src python -c "import esbl_rf.models, esbl_rf.antibiotics, esbl_rf.surgery, esbl_rf.tables; print('ok')"
@@ -432,3 +432,26 @@ the `NOT EXISTS (...)` must ignore cephalexin rows. Change its last line to:
   "rheumatology": other
 ```
 After the run, `check_specialty` should report only episodes with no description.
+
+---
+
+## 13. More body locations into real site groups (decided 2026-11-27)
+
+First, the typo found in the SDE: the genital line was missing a `|` between
+`\bvaginal\b` and `\bhvs\b` (already fixed by hand).
+
+`config.yaml`, section `sites: groups:`. Change the `tissue/biopsy`, `tips_devices`
+and `genital` lines to:
+```yaml
+    - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b|\bbone\b'}
+    - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b|\bport\b(?!\s*site)'}
+    - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b|\bvulva\b|\bvulval\b|\bpenile\b|\biucd\b|\bintrauterine\b'}
+```
+Then replace the last three lines (the wound / drain / sputum body-location lines)
+with these three, in this order:
+```yaml
+    - {label: sputum, pattern: '\bendotracheal\b|\btracheostomy\b'}
+    - {label: drain, pattern: '\bbiliary\b|\baspirate\b'}
+    - {label: wound, pattern: '\babdomen\b|\babdominal\b|\bback\b|\bneck\b|\bchest\b|\bbreast\b|\btoe\b|\bfoot\b|\bshin\b|\bsacral\b|\bsacrum\b|\bumbilicus\b|\bumbilical\b|\bstoma\b'}
+```
+Single quotes only, and a `|` between every `\b...\b` word. Then re-run everything.

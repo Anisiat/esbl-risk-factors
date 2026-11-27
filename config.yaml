@@ -35,15 +35,17 @@ sites:
     - {label: sputum, pattern: '\bsputum\b|\bbronchoalveolar\b|\bbronchial\b|\bbal\b'}
     - {label: wound, pattern: '\bwound\b|\bpus\b'}
     - {label: drain, pattern: '\bdrain\b|\bfluid\b|\bbile\b'}
-    - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b'}
-    - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b'}
-    - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b'}   # added 2026-11-26
-    # Body-location words (added 2026-11-27) come LAST, so a recognised specimen type wins:
-    # 'abdominal drain' -> drain, 'abdominal tissue' -> tissue/biopsy, 'endotracheal tube tip' ->
-    # tips_devices; only a location with no specimen type (e.g. 'abdomen') falls through to these.
-    - {label: wound, pattern: '\babdomen\b|\babdominal\b'}
-    - {label: drain, pattern: '\bbiliary\b'}
-    - {label: sputum, pattern: '\bendotracheal\b'}
+    - {label: tissue/biopsy, pattern: '\btissue\b|\bbiopsy\b|\bbone\b'}
+    # 'port' = implanted port; '(?!\s*site)' keeps a laparoscopic 'port site' out of devices.
+    - {label: tips_devices, pattern: '\btips\b|\btip\b|\bdevices\b|\bcatheter\b|\bport\b(?!\s*site)'}
+    - {label: genital, pattern: '\bvagina\b|\bvaginal\b|\bhvs\b|\blvs\b|\bvulva\b|\bvulval\b|\bpenile\b|\biucd\b|\bintrauterine\b'}
+    # Body-location words come LAST, so a recognised specimen type wins: 'abdominal drain' ->
+    # drain, 'abdominal tissue' -> tissue/biopsy, 'endotracheal tube tip' -> tips_devices; only a
+    # location with no specimen type (e.g. 'abdomen', or 'back' with no culture type) falls through.
+    # Decided 2026-11-27: swabs labelled only with a skin location are wound swabs.
+    - {label: sputum, pattern: '\bendotracheal\b|\btracheostomy\b'}
+    - {label: drain, pattern: '\bbiliary\b|\baspirate\b'}
+    - {label: wound, pattern: '\babdomen\b|\babdominal\b|\bback\b|\bneck\b|\bchest\b|\bbreast\b|\btoe\b|\bfoot\b|\bshin\b|\bsacral\b|\bsacrum\b|\bumbilicus\b|\bumbilical\b|\bstoma\b'}
   # Episode site = the first of these present among the episode's samples. Episodes whose
   # samples are all 'other' are kept (decided 2026-11-27); in the models 'other' is an
   # adjustment (nuisance) level, and sparse levels such as genital merge into it.

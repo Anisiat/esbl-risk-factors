@@ -228,3 +228,15 @@ def test_surgery_length_keeps_rows_and_missing_column_raises(cfg):
     assert len(add_surgery_length(df, cfg)) == 1
     with pytest.raises(ValueError, match="missing column"):
         add_surgery_length(df.drop(columns="surgery_stop_ts"), cfg)
+
+
+def test_concurrent_procedures_count_as_one_surgery(cfg):
+    """Two procedures of one surgery event are one surgery, and the attributed row does not depend on order."""
+    s = make_samples([("p1", "a", 1, "2020-01-20")])
+    g = make_surgeries([("p1", "a", "2020-01-02"), ("p1", "a", "2020-01-15"), ("p1", "a", "2020-01-15")], cfg)
+    g["surgery_event_id"] = [10, 20, 20]
+    g["procedure_desc"] = ["hernia repair", "colectomy", "stoma formation"]
+    out = attribute_surgery(s, g, cfg)
+    flipped = attribute_surgery(s, g.iloc[::-1], cfg)
+    assert out["n_surgeries_before"].iloc[0] == 2
+    assert out["procedure_desc"].iloc[0] == flipped["procedure_desc"].iloc[0] == "stoma formation"

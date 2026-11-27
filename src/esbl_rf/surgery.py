@@ -13,7 +13,7 @@ def attribute_surgery(samples: pd.DataFrame, surgeries: pd.DataFrame, cfg: dict)
     """Copy the most recent preceding surgery onto each sample.
 
     Grain: ``samples`` has one row per sample; ``surgeries`` has one row per
-    surgery in a spell. The output has exactly the rows, order and index of
+    procedure (several procedures can share one ``surgery_event_id``). The output has exactly the rows, order and index of
     ``samples``. A sample is attributed to the surgery in the same spell with the
     latest anchor time strictly before the sample's collection time (the
     manuscript took the first surgery per spell; analysis_plan section 2). Samples
@@ -32,7 +32,8 @@ def attribute_surgery(samples: pd.DataFrame, surgeries: pd.DataFrame, cfg: dict)
     -------
     pd.DataFrame
         ``samples`` plus the ``surgery_columns`` columns, ``n_surgeries_before``
-        (surgeries in the spell before the sample) and
+        (distinct surgery events in the spell before the sample; CHANGE: it
+        counted procedure rows) and
         ``days_from_surgery_to_sample``.
 
     Raises
@@ -63,8 +64,11 @@ def attribute_surgery(samples: pd.DataFrame, surgeries: pd.DataFrame, cfg: dict)
     work = samples[[subject, spell, collect]].reset_index(drop=True).rename_axis("_row").reset_index()
     pairs = work.merge(surgeries[[subject, spell, *surgery_cols]], on=[subject, spell], how="inner")
     pairs = pairs[pairs[anchor] < pairs[collect]]
-    n_before = pairs.groupby("_row").size()
-    latest = pairs.sort_values(anchor, kind="stable").groupby("_row").tail(1)
+    n_before = pairs.groupby("_row")["surgery_event_id"].nunique()
+    # Concurrent procedures (same anchor and event) are tied: take the last by event id and
+    # procedure name, so the choice never depends on row order.
+    latest = pairs.sort_values([anchor, "surgery_event_id", cols["procedure"]], kind="stable",
+                               na_position="first").groupby("_row").tail(1)
     attributed = work[["_row"]].merge(latest[["_row", *surgery_cols]], on="_row", how="left", validate="one_to_one")
 
     out = samples.copy()

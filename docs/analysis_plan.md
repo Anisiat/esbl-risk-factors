@@ -474,3 +474,13 @@ VIF, and the variables dropped or collapsed.
     3GCS; check the real cefalexin strings with
     sql/exploration/03_urine_cefalexin.sql (statement 3) and add any others.
     Sensitivity analysis: without this rule (not yet built).
+30. Model fits with convergence or separation problems (decided 2026-11-27):
+    the primary and first-episode models stop the run; a univariable variable
+    or subgroup stratum is reported as not estimable, with no OR or CI.
+31. CHANGE (decided 2026-11-27): co-trimoxazole, sulfamethoxazole and
+    tetracycline count as antibiotics (the manuscript's suffix rule dropped
+    them). Administrations with a status in `antibiotics.not_given_statuses`
+    are dropped (list to be filled from the SDE run log).
+32. Table S1 shows all 17 Charlson conditions as n (%) (10 were shown as
+    median [IQR] of a 0/1 flag).
+33. `n_surgeries` counts distinct surgery events, not procedure rows.
